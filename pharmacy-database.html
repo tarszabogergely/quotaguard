@@ -145,7 +145,7 @@
                     <td class="p-3 font-mono text-xs text-slate-600">${item.patient_identifier || '-'}</td>
                     <td class="p-3">
                         ${item.drug_name}
-                        ${item.delivery_note_number ? `<br><span class="text-[10px] text-slate-500 font-mono">Sz.lev: ${item.delivery_note_number} \vert{} Gy.sz:${item.batch_number || '-'}</span>` : ''}
+                        ${item.delivery_note_number ? `<br><span class="text-[10px] text-slate-500 font-mono">Sz.lev: ${item.delivery_note_number} | Gy.sz: ${item.batch_number || '-'}</span>` : ''}
                     </td>
                     <td class="p-3 font-semibold">${item.quantity} doboz</td>
                     <td class="p-3">${statusBadge}</td>
