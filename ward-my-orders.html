@@ -42,7 +42,7 @@
 
     <!-- Részletek Modális Ablak -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
             <div class="flex justify-between items-center border-b pb-4">
                 <h3 id="modal-title" class="text-lg font-bold text-slate-900">Csomag részletei</h3>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
@@ -112,11 +112,9 @@
                         batchId: bId,
                         createdAt: order.created_at,
                         pickupDate: order.requested_pickup_date,
-                        status: order.status,
                         items: []
                     };
                 }
-                if (order.status === 'pending') batches[bId].status = 'pending';
                 batches[bId].items.push(order);
             });
 
@@ -124,12 +122,22 @@
             Object.values(batches).forEach(batch => {
                 let totalBoxes = batch.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
                 let patientsCount = new Set(batch.items.map(i => i.patient_name)).size;
+                
+                // Megszámoljuk, hány elem nincs még lejelentve (azaz nem 'reported')
+                let pendingReportCount = batch.items.filter(i => i.status !== 'reported').length;
+                let allReported = pendingReportCount === 0;
 
                 let statusBadge = '';
-                if (batch.status === 'pending') statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
-                else if (batch.status === 'assembled') statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva (Patikában)</span>';
-                else if (batch.status === 'dispensed') statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva / Teljesítve</span>';
-                else if (batch.status === 'reported') statusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-semibold">Jelentve / Lezárva</span>';
+                if (allReported) {
+                    statusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-semibold">Minden tétel lejelentve ✓</span>';
+                } else {
+                    let hasDispensed = batch.items.some(i => i.status === 'dispensed');
+                    let hasAssembled = batch.items.some(i => i.status === 'assembled');
+                    
+                    if (hasDispensed) statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva (${pendingReportCount} még nem jelentve)</span>`;
+                    else if (hasAssembled) statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva a Patikában</span>';
+                    else statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
+                }
 
                 const cardHtml = `
                     <div class="bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition shadow-sm cursor-pointer" onclick="openBatchModal('${batch.batchId}')">
@@ -172,6 +180,7 @@
                                 <th class="p-2.5">Gyógyszer</th>
                                 <th class="p-2.5">Beteg neve (TAJ)</th>
                                 <th class="p-2.5">Szállítólevél</th>
+                                <th class="p-2.5">Beteg állapota</th>
                                 <th class="p-2.5 text-right">Mennyiség</th>
                             </tr>
                         </thead>
@@ -185,11 +194,18 @@
                     ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>`
                     : `<span class="text-slate-400 italic">Folyamatban</span>`;
 
+                let itemStatusBadge = '';
+                if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
+                else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítva</span>';
+                else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
+                else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
+
                 contentHtml += `
                     <tr>
                         <td class="p-2.5 font-medium">${ord.drug_name}</td>
                         <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || '-'})</span></td>
                         <td class="p-2.5">${deliveryInfo}</td>
+                        <td class="p-2.5">${itemStatusBadge}</td>
                         <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
                     </tr>
                 `;
