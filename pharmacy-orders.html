@@ -17,12 +17,13 @@
                 <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
                 <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
             </div>
+            <!-- Patikai Menüsor az Adatbázis füllel -->
             <nav class="flex items-center space-x-2 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800 text-xs">
-                <a href="pharmacy-orders.html" class="[AKTIV_1] px-3 py-1.5 rounded-lg font-medium transition">Beérkező rendelések</a>
-                <a href="pharmacy-database.html" class="[AKTIV_2] px-3 py-1.5 rounded-lg font-medium transition">Adatbázis</a>
-                <a href="pharmacy-inventory.html" class="[AKTIV_3] px-3 py-1.5 rounded-lg font-medium transition">Bevétel & Készlet</a>
-                <a href="pharmacy-cato.html" class="[AKTIV_4] px-3 py-1.5 rounded-lg font-medium transition">CATO</a>
-                <a href="pharmacy-settings.html" class="[AKTIV_5] px-3 py-1.5 rounded-lg font-medium transition">Beállítások</a>
+                <a href="pharmacy-orders.html" class="bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium shadow">Beérkező rendelések</a>
+                <a href="pharmacy-database.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Adatbázis</a>
+                <a href="pharmacy-inventory.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Bevétel & Készlet</a>
+                <a href="pharmacy-cato.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">CATO</a>
+                <a href="pharmacy-settings.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beállítások</a>
             </nav>
             <div class="text-sm text-indigo-200 flex items-center space-x-3">
                 <span><strong id="logged-user" class="text-white"></strong></span>
@@ -147,10 +148,34 @@
                 let totalBoxes = batch.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
                 let patientsCount = new Set(batch.items.map(i => i.patient_name)).size;
 
+                let pendingReportCount = batch.items.filter(i => i.status !== 'reported').length;
+                let allReported = pendingReportCount === 0;
+
                 let statusBadge = '';
                 if (batch.status === 'pending') statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
                 else if (batch.status === 'assembled') statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva</span>';
                 else if (batch.status === 'dispensed') statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
+
+                // Vizuális jelentés indikátor (piros X vagy zöld pipa)
+                let reportIndicatorHtml = '';
+                if (allReported) {
+                    reportIndicatorHtml = `
+                        <div class="flex items-center space-x-1 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                            <span class="text-lg font-bold">✓</span>
+                            <span class="text-xs font-semibold">Minden jelentve</span>
+                        </div>
+                    `;
+                } else {
+                    reportIndicatorHtml = `
+                        <div class="flex items-center space-x-2 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200 text-right">
+                            <span class="text-red-600 font-bold text-base">✕</span>
+                            <div class="text-[11px] leading-tight">
+                                <span class="text-red-700 font-semibold block">Nem jelentve:</span>
+                                <span class="text-red-900 font-bold">${pendingReportCount} tétel</span>
+                            </div>
+                        </div>
+                    `;
+                }
 
                 const cardHtml = `
                     <div class="bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition shadow-sm cursor-pointer" onclick="openBatchModal('${batch.batchId}')">
@@ -163,6 +188,7 @@
                             <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Kért átvétel: ${batch.pickupDate ? new Date(batch.pickupDate).toLocaleString('hu-HU') : '-'}</div>
                         </div>
                         <div class="flex items-center space-x-4 self-end md:self-center">
+                            ${reportIndicatorHtml}
                             <div class="text-right">
                                 <span class="text-xs text-slate-400 block">Összesen</span>
                                 <strong class="text-base text-indigo-900">${totalBoxes} doboz</strong>
@@ -172,7 +198,7 @@
                     </div>
                 `;
 
-                if (batch.status === 'dispensed') {
+                if (batch.status === 'dispensed' && allReported) {
                     completedCount++;
                     completedContainer.innerHTML += cardHtml;
                 } else {
@@ -181,8 +207,8 @@
                 }
             });
 
-            if (activeCount === 0) activeContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs aktív rendelési csomag.</div>';
-            if (completedCount === 0) completedContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs teljesített csomag az archívumban.</div>';
+            if (activeCount === 0) activeContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs aktív vagy lezáratlan rendelési csomag.</div>';
+            if (completedCount === 0) completedContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs teljesen lejelentett csomag az archívumban.</div>';
         }
 
         function openBatchModal(batchId) {
@@ -202,8 +228,9 @@
                         <thead class="bg-slate-100 text-slate-600 uppercase">
                             <tr>
                                 <th class="p-2.5">Gyógyszer</th>
-                                <th class="p-2.5">Beteg (TAJ)</th>
+                                <th class="p-2.5">Beteg neve (TAJ)</th>
                                 <th class="p-2.5">Szállítólevél / Gyártási szám</th>
+                                <th class="p-2.5">Beteg állapota</th>
                                 <th class="p-2.5 text-right">Mennyiség</th>
                             </tr>
                         </thead>
@@ -217,11 +244,18 @@
                     ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>`
                     : `<span class="text-amber-600 italic">Még nincs összekészítve</span>`;
 
+                let itemStatusBadge = '';
+                if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
+                else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítva</span>';
+                else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
+                else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
+
                 contentHtml += `
                     <tr>
                         <td class="p-2.5 font-medium">${ord.drug_name}</td>
-                        <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || 'Nincs TAJ'})</span></td>
+                        <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || '-'})</span></td>
                         <td class="p-2.5">${deliveryInfo}</td>
+                        <td class="p-2.5">${itemStatusBadge}</td>
                         <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
                     </tr>
                 `;
@@ -252,7 +286,7 @@
                     </button>
                 `;
             } else {
-                actionContainer.innerHTML = `<span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl">Teljesítve & Kiadva</span>`;
+                actionContainer.innerHTML = `<span class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-xl">Kiadva és követve</span>`;
             }
 
             document.getElementById('modal-backdrop').classList.remove('hidden');
@@ -263,11 +297,9 @@
             activeBatchIdModal = null;
         }
 
-        // 1. Lépés: Összeállítás (Itt történik a szállítólevél és gyártási szám hozzárendelése a FIFO raktárból)
         async function assembleBatch(batchId) {
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
 
-            // Ellenőrizzük a raktárkészletet
             const neededDrugs = {};
             batchOrders.forEach(o => {
                 neededDrugs[o.drug_name] = (neededDrugs[o.drug_name] || 0) + o.quantity;
@@ -284,7 +316,6 @@
                 return;
             }
 
-            // Ellenőrzés és szállítólevél hozzárendelés előkészítése
             for (let [drugName, requiredQty] of Object.entries(neededDrugs)) {
                 let availableQty = inventory
                     .filter(inv => inv.drug_name === drugName || drugName.includes(inv.drug_name) || inv.drug_name.includes(drugName))
@@ -296,7 +327,6 @@
                 }
             }
 
-            // Hozzárendeljük a szállítólevelet és a státuszt 'assembled'-re állítjuk (DE MÉG NEM csökkentjük a raktárat!)
             for (let ord of batchOrders) {
                 let remaining = ord.quantity;
                 let assignedDelivery = '';
@@ -329,7 +359,6 @@
             loadPharmacyPackages();
         }
 
-        // 2. Lépés: Kiadás (Itt történik a tényleges FIFO készletcsökkentés)
         async function dispenseBatch(batchId) {
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
 
@@ -349,7 +378,6 @@
                 return;
             }
 
-            // FIFO készletcsökkentés végrehajtása
             for (let [drugName, requiredQty] of Object.entries(neededDrugs)) {
                 let remainingToDeduct = requiredQty;
 
