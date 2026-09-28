@@ -57,7 +57,7 @@
 
     <!-- Részletek / Nyomtatás Modális Ablak -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
             <div class="flex justify-between items-center border-b pb-4">
                 <h3 id="modal-title" class="text-lg font-bold text-slate-900">Csomag részletei</h3>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
@@ -116,7 +116,6 @@
 
             allOrdersData = data || [];
             
-            // Csoportosítás batch_id alapján
             const batches = {};
             allOrdersData.forEach(order => {
                 const bId = order.order_batch_id || ('ID-' + order.id.slice(0, 8));
@@ -130,7 +129,6 @@
                         items: []
                     };
                 }
-                // Ha valamelyik tétel még pending, akkor a csomag is pending/active
                 if (order.status === 'pending') batches[bId].status = 'pending';
                 batches[bId].items.push(order);
             });
@@ -204,6 +202,7 @@
                             <tr>
                                 <th class="p-2.5">Gyógyszer</th>
                                 <th class="p-2.5">Beteg (TAJ)</th>
+                                <th class="p-2.5">Szállítólevél / Gyártási szám</th>
                                 <th class="p-2.5 text-right">Mennyiség</th>
                             </tr>
                         </thead>
@@ -213,10 +212,15 @@
             let totalBoxes = 0;
             batchOrders.forEach(ord => {
                 totalBoxes += ord.quantity;
+                let deliveryInfo = ord.delivery_note_number 
+                    ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>`
+                    : `<span class="text-amber-600 italic">Még nincs összekészítve</span>`;
+
                 contentHtml += `
                     <tr>
-                        <td class="p-2.5 font-medium">${ord.drug_name}<br><span class="text-[10px] text-slate-400">${ord.indication || ''}</span></td>
+                        <td class="p-2.5 font-medium">${ord.drug_name}</td>
                         <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || 'Nincs TAJ'})</span></td>
+                        <td class="p-2.5">${deliveryInfo}</td>
                         <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
                     </tr>
                 `;
@@ -233,17 +237,16 @@
 
             document.getElementById('modal-content').innerHTML = contentHtml;
 
-            // Műveleti gombok a státusz alapján
             const actionContainer = document.getElementById('modal-action-buttons');
             if (first.status === 'pending') {
                 actionContainer.innerHTML = `
-                    <button onclick="updateBatchStatus('${batchId}', 'assembled')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
-                        Összeállítás kész (Csomag ellenőrizve) ✓
+                    <button onclick="assembleBatch('${batchId}')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
+                        Összeállítás kész (Szállítólevél hozzárendelése) ✓
                     </button>
                 `;
             } else if (first.status === 'assembled') {
                 actionContainer.innerHTML = `
-                    <button onclick="updateBatchStatus('${batchId}', 'dispensed')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
+                    <button onclick="dispenseBatch('${batchId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
                         Kiadás az Osztálynak (FIFO Készletcsökkentés) 🛡️
                     </button>
                 `;
@@ -259,88 +262,130 @@
             activeBatchIdModal = null;
         }
 
-        async function updateBatchStatus(batchId, newStatus) {
+        // 1. Lépés: Összeállítás (Itt történik a szállítólevél és gyártási szám hozzárendelése a FIFO raktárból)
+        async function assembleBatch(batchId) {
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
 
-            // Ha kiadásra (`dispensed`) menne, először ellenőrizzük a FIFO raktárkészletet!
-            if (newStatus === 'dispensed') {
-                // Összegezzük, hogy melyik gyógyszerből mennyi kell
-                const neededDrugs = {};
-                batchOrders.forEach(o => {
-                    neededDrugs[o.drug_name] = (neededDrugs[o.drug_name] || 0) + o.quantity;
-                });
+            // Ellenőrizzük a raktárkészletet
+            const neededDrugs = {};
+            batchOrders.forEach(o => {
+                neededDrugs[o.drug_name] = (neededDrugs[o.drug_name] || 0) + o.quantity;
+            });
 
-                // Lekérdezzük az aktuális aktív készletet FIFO (lejárat szerinti) sorrendben
-                const { data: inventory, error: invErr } = await _supabase
-                    .from('inventory_receipts')
-                    .select('*')
-                    .gt('current_quantity', 0)
-                    .order('expiry_date', { ascending: true });
+            const { data: inventory, error: invErr } = await _supabase
+                .from('inventory_receipts')
+                .select('*')
+                .gt('current_quantity', 0)
+                .order('expiry_date', { ascending: true });
 
-                if (invErr) {
-                    alert('Hiba a raktárkészlet ellenőrzésekor: ' + invErr.message);
+            if (invErr) {
+                alert('Hiba a raktár lekérdezésekor: ' + invErr.message);
+                return;
+            }
+
+            // Ellenőrzés és szállítólevél hozzárendelés előkészítése
+            for (let [drugName, requiredQty] of Object.entries(neededDrugs)) {
+                let availableQty = inventory
+                    .filter(inv => inv.drug_name === drugName || drugName.includes(inv.drug_name) || inv.drug_name.includes(drugName))
+                    .reduce((sum, inv) => sum + inv.current_quantity, 0);
+
+                if (availableQty < requiredQty) {
+                    alert(`HIBA: Nincs elegendő bevételezett készlet a(z) "${drugName}" gyógyszerből az összeállításhoz!\nSzükséges: ${requiredQty}, Elérhető: ${availableQty} doboz.`);
                     return;
                 }
+            }
 
-                // Ellenőrzés: minden gyógyszerre van-e elég bevételezett készlet
-                for (let [drugName, requiredQty] of Object.entries(neededDrugs)) {
-                    let availableQty = inventory
-                        .filter(inv => inv.drug_name === drugName || drugName.includes(inv.drug_name) || inv.drug_name.includes(drugName))
-                        .reduce((sum, inv) => sum + inv.current_quantity, 0);
+            // Hozzárendeljük a szállítólevelet és a státuszt 'assembled'-re állítjuk (DE MÉG NEM csökkentjük a raktárat!)
+            for (let ord of batchOrders) {
+                let remaining = ord.quantity;
+                let assignedDelivery = '';
+                let assignedBatch = '';
 
-                    if (availableQty < requiredQty) {
-                        alert(`HIBA: Nincs elegendő bevételezett tétel raktáron a(z) "${drugName}" gyógyszerből!\nSzükséges: ${requiredQty} doboz, Elérhető aktív készlet: ${availableQty} doboz.\nKérlek előbb végezd el a bevételezést a szállítólevél alapján!`);
-                        return;
+                for (let inv of inventory) {
+                    if (remaining <= 0) break;
+                    if (inv.drug_name === ord.drug_name || ord.drug_name.includes(inv.drug_name) || inv.drug_name.includes(ord.drug_name)) {
+                        let take = Math.min(inv.current_quantity, remaining);
+                        if (take > 0) {
+                            assignedDelivery = inv.delivery_note_number;
+                            assignedBatch = inv.batch_number;
+                            remaining -= take;
+                        }
                     }
                 }
 
-                // Ha van elég készlet, végrehajtjuk a FIFO csökkentést tételenként
-                for (let [drugName, requiredQty] of Object.entries(neededDrugs)) {
-                    let remainingToDeduct = requiredQty;
+                await _supabase
+                    .from('orders')
+                    .update({ 
+                        status: 'assembled',
+                        delivery_note_number: assignedDelivery,
+                        batch_number: assignedBatch
+                    })
+                    .eq('id', ord.id);
+            }
 
-                    for (let inv of inventory) {
-                        if (remainingToDeduct <= 0) break;
-                        if (inv.drug_name === drugName || drugName.includes(inv.drug_name) || inv.drug_name.includes(drugName)) {
-                            let deductFromThis = Math.min(inv.current_quantity, remainingToDeduct);
-                            let newQty = inv.current_quantity - deductFromThis;
+            alert('Csomag sikeresen összeállítva! Szállítólevelek hozzárendelve. ✓');
+            closeModal();
+            loadPharmacyPackages();
+        }
 
-                            // Frissítjük a raktári tételt a Supabase-ben
-                            await _supabase
-                                .from('inventory_receipts')
-                                .update({ current_quantity: newQty })
-                                .eq('id', inv.id);
+        // 2. Lépés: Kiadás (Itt történik a tényleges FIFO készletcsökkentés)
+        async function dispenseBatch(batchId) {
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
 
-                            inv.current_quantity = newQty; // helyi frissítés
-                            remainingToDeduct -= deductFromThis;
-                        }
+            const neededDrugs = {};
+            batchOrders.forEach(o => {
+                neededDrugs[o.drug_name] = (neededDrugs[o.drug_name] || 0) + o.quantity;
+            });
+
+            const { data: inventory, error: invErr } = await _supabase
+                .from('inventory_receipts')
+                .select('*')
+                .gt('current_quantity', 0)
+                .order('expiry_date', { ascending: true });
+
+            if (invErr) {
+                alert('Hiba: ' + invErr.message);
+                return;
+            }
+
+            // FIFO készletcsökkentés végrehajtása
+            for (let [drugName, requiredQty] of Object.entries(neededDrugs)) {
+                let remainingToDeduct = requiredQty;
+
+                for (let inv of inventory) {
+                    if (remainingToDeduct <= 0) break;
+                    if (inv.drug_name === drugName || drugName.includes(inv.drug_name) || inv.drug_name.includes(drugName)) {
+                        let deduct = Math.min(inv.current_quantity, remainingToDeduct);
+                        let newQty = inv.current_quantity - deduct;
+
+                        await _supabase
+                            .from('inventory_receipts')
+                            .update({ current_quantity: newQty })
+                            .eq('id', inv.id);
+
+                        inv.current_quantity = newQty;
+                        remainingToDeduct -= deduct;
                     }
                 }
             }
 
-            // Státusz frissítése az orders táblában a csomag összes elemére
             const orderIds = batchOrders.map(o => o.id);
             const { error } = await _supabase
                 .from('orders')
-                .update({ status: newStatus })
+                .update({ status: 'dispensed' })
                 .in('id', orderIds);
 
             if (error) {
-                alert('Hiba történt: ' + error.message);
+                alert('Hiba: ' + error.message);
             } else {
-                alert(newStatus === 'dispensed' ? 'Csomag sikeresen kiadva, FIFO készlet lecsökkentve! 🛡️' : 'Csomag összeállítva! ✓');
+                alert('Csomag sikeresen kiadva az osztálynak! 🛡️');
                 closeModal();
                 loadPharmacyPackages();
             }
         }
 
-        // Nyomtatási nézetek (A4 Összesítő és Címkék)
-        function printA4Summary() {
-            window.print();
-        }
-
-        function printBoxLabels() {
-            window.print();
-        }
+        function printA4Summary() { window.print(); }
+        function printBoxLabels() { window.print(); }
     </script>
 </body>
 </html>
