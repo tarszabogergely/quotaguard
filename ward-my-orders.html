@@ -29,32 +29,34 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
-        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-slate-100 mt-4">
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-slate-100">
             <h2 class="text-xl font-bold text-slate-900 mb-6 flex items-center">
-                <span class="mr-2">📋</span> Osztályi rendelések előzményei
+                <span class="mr-2">📋</span> Osztályi rendelési csomagok előzményei
             </h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
-                            <th class="p-3 rounded-l-xl">Dátum / Idő</th>
-                            <th class="p-3">Beteg (TAJ)</th>
-                            <th class="p-3">Gyógyszer</th>
-                            <th class="p-3">Mennyiség</th>
-                            <th class="p-3">Státusz</th>
-                            <th class="p-3 rounded-r-xl">Kért átvétel</th>
-                        </tr>
-                    </thead>
-                    <tbody id="orders-table-body" class="divide-y divide-slate-100">
-                        <tr>
-                            <td colspan="6" class="p-4 text-center text-slate-400">Rendelések betöltése...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div id="ward-packages-container" class="space-y-4">
+                <div class="p-6 text-center text-slate-400">Rendelések betöltése...</div>
             </div>
         </div>
     </main>
+
+    <!-- Részletek Modális Ablak -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+            <div class="flex justify-between items-center border-b pb-4">
+                <h3 id="modal-title" class="text-lg font-bold text-slate-900">Csomag részletei</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+            </div>
+            
+            <div id="modal-content" class="space-y-4 text-sm">
+                <!-- Dinamikus tartalom -->
+            </div>
+
+            <div class="border-t pt-4 flex justify-end">
+                <button onclick="closeModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-xl text-xs font-medium shadow transition">Bezárás</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const SUPABASE_URL = 'https://qglicccrflohqkhadthc.supabase.co';
@@ -65,13 +67,14 @@
 
         let currentUser = localStorage.getItem('qg_user');
         let currentWard = localStorage.getItem('qg_ward');
+        let allWardOrders = [];
 
         if (!currentUser || localStorage.getItem('qg_role') !== 'ward') {
             window.location.href = 'index.html';
         } else {
             document.getElementById('logged-user').innerText = currentUser;
             document.getElementById('ward-badge').innerText = currentWard;
-            loadMyOrders();
+            loadWardPackages();
         }
 
         function logout() {
@@ -79,45 +82,133 @@
             window.location.href = 'index.html';
         }
 
-        async function loadMyOrders() {
+        async function loadWardPackages() {
             const { data, error } = await _supabase
                 .from('orders')
                 .select('*')
                 .eq('ward_name', currentWard)
                 .order('created_at', { ascending: false });
 
-            const tbody = document.getElementById('orders-table-body');
+            const container = document.getElementById('ward-packages-container');
 
             if (error) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
+                container.innerHTML = `<div class="p-6 text-center text-red-500">Hiba: ${error.message}</div>`;
                 return;
             }
 
-            if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Még nincsenek leadott rendelések ettől az osztálytól.</td></tr>`;
+            allWardOrders = data || [];
+
+            if (allWardOrders.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-slate-400">Még nincsenek leadott rendelések ettől az osztálytól.</div>`;
                 return;
             }
 
-            tbody.innerHTML = '';
-            data.forEach(order => {
-                let statusBadge = '';
-                if (order.status === 'pending') statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
-                else if (order.status === 'assembled') statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva</span>';
-                else if (order.status === 'dispensed') statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
-                else statusBadge = `<span class="bg-slate-100 text-slate-800 px-2.5 py-1 rounded-full text-xs font-semibold">${order.status}</span>`;
-
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-slate-50 transition';
-                row.innerHTML = `
-                    <td class="p-3 text-slate-500 text-xs">${new Date(order.created_at).toLocaleString('hu-HU')}</td>
-                    <td class="p-3 font-medium">${order.patient_name}<br><span class="text-xs text-slate-400 font-normal">${order.patient_identifier || ''}</span></td>
-                    <td class="p-3">${order.drug_name}</td>
-                    <td class="p-3 font-semibold">${order.quantity} doboz</td>
-                    <td class="p-3">${statusBadge}</td>
-                    <td class="p-3 text-slate-600 text-xs">${order.requested_pickup_date ? new Date(order.requested_pickup_date).toLocaleString('hu-HU') : '-'}</td>
-                `;
-                tbody.appendChild(row);
+            // Csoportosítás batch_id alapján
+            const batches = {};
+            allWardOrders.forEach(order => {
+                const bId = order.order_batch_id || ('ID-' + order.id.slice(0, 8));
+                if (!batches[bId]) {
+                    batches[bId] = {
+                        batchId: bId,
+                        createdAt: order.created_at,
+                        pickupDate: order.requested_pickup_date,
+                        status: order.status,
+                        items: []
+                    };
+                }
+                if (order.status === 'pending') batches[bId].status = 'pending';
+                batches[bId].items.push(order);
             });
+
+            container.innerHTML = '';
+            Object.values(batches).forEach(batch => {
+                let totalBoxes = batch.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                let patientsCount = new Set(batch.items.map(i => i.patient_name)).size;
+
+                let statusBadge = '';
+                if (batch.status === 'pending') statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
+                else if (batch.status === 'assembled') statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva (Patikában)</span>';
+                else if (batch.status === 'dispensed') statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva / Teljesítve</span>';
+
+                const cardHtml = `
+                    <div class="bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition shadow-sm cursor-pointer" onclick="openBatchModal('${batch.batchId}')">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-mono font-bold text-indigo-900">${batch.batchId}</span>
+                                ${statusBadge}
+                            </div>
+                            <div class="text-sm font-medium text-slate-700">Kedvezményezett betegek száma: <strong>${patientsCount} fő</strong></div>
+                            <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Kért átvétel: ${batch.pickupDate ? new Date(batch.pickupDate).toLocaleString('hu-HU') : '-'}</div>
+                        </div>
+                        <div class="flex items-center space-x-4 self-end md:self-center">
+                            <div class="text-right">
+                                <span class="text-xs text-slate-400 block">Összesen</span>
+                                <strong class="text-base text-indigo-900">${totalBoxes} doboz</strong>
+                            </div>
+                            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-medium shadow transition">Részletek →</button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function openBatchModal(batchId) {
+            const batchOrders = allWardOrders.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
+            if (batchOrders.length === 0) return;
+
+            const first = batchOrders[0];
+            document.getElementById('modal-title').innerText = `Rendelési csomag részletei: ${batchId}`;
+
+            let contentHtml = `
+                <div class="text-xs text-slate-500 mb-3">
+                    Leadva: ${new Date(first.created_at).toLocaleString('hu-HU')} | Átvétel: ${first.requested_pickup_date ? new Date(first.requested_pickup_date).toLocaleString('hu-HU') : '-'}
+                </div>
+                <div class="border rounded-xl overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 text-slate-600 uppercase">
+                            <tr>
+                                <th class="p-2.5">Gyógyszer</th>
+                                <th class="p-2.5">Beteg neve (TAJ)</th>
+                                <th class="p-2.5">Szállítólevél</th>
+                                <th class="p-2.5 text-right">Mennyiség</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+            `;
+
+            let totalBoxes = 0;
+            batchOrders.forEach(ord => {
+                totalBoxes += ord.quantity;
+                let deliveryInfo = ord.delivery_note_number 
+                    ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>`
+                    : `<span class="text-slate-400 italic">Folyamatban</span>`;
+
+                contentHtml += `
+                    <tr>
+                        <td class="p-2.5 font-medium">${ord.drug_name}</td>
+                        <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || '-'})</span></td>
+                        <td class="p-2.5">${deliveryInfo}</td>
+                        <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
+                    </tr>
+                `;
+            });
+
+            contentHtml += `
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-right text-sm font-bold text-slate-800">
+                    Csomag összesen: <span class="text-indigo-900">${totalBoxes} doboz</span>
+                </div>
+            `;
+
+            document.getElementById('modal-content').innerHTML = contentHtml;
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-backdrop').classList.add('hidden');
         }
     </script>
 </body>
