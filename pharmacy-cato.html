@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuotaGuard - Patika: CATO Feladatok</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header & Patika Navigáció -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🛡️</span>
+                <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
+                <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
+            </div>
+            <!-- Frissített Gyógyszertári menüsor (CATO a Beállítások előtt) -->
+            <nav class="flex items-center space-x-2 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800 text-xs">
+                <a href="pharmacy-orders.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beérkező rendelések</a>
+                <a href="pharmacy-inventory.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Bevétel & Készlet</a>
+                <a href="pharmacy-cato.html" class="bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium shadow">CATO</a>
+                <a href="pharmacy-settings.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beállítások</a>
+            </nav>
+            <div class="text-sm text-indigo-200 flex items-center space-x-3">
+                <span><strong id="logged-user" class="text-white"></strong></span>
+                <button onclick="logout()" class="bg-indigo-800 hover:bg-indigo-700 px-3 py-1 rounded-lg text-xs transition">Kilépés</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+        
+        <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                        <span class="mr-2">🤖</span> CATO-ba vitelre váró bevételezett gyógyszerek
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Azok a raktári tételek, amelyek a gyógyszertörzs alapján CATO jelöléssel bírnak, de még nem lettek átküldve/rögzítve a robotrendszerbe.</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
+                            <th class="p-3 rounded-l-xl">Bevételezve</th>
+                            <th class="p-3">Gyógyszer neve</th>
+                            <th class="p-3">Szállítólevél</th>
+                            <th class="p-3">Aktuális készlet</th>
+                            <th class="p-3">Lejárati idő</th>
+                            <th class="p-3 rounded-r-xl text-right">Művelet</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cato-queue-body" class="divide-y divide-slate-100">
+                        <tr><td colspan="6" class="p-4 text-center text-slate-400">CATO feladatok betöltése...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://qglicccrflohqkhadthc.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_kdK4lOXv11t_zzbSa7H4qA_YyhhPu1N';
+
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = localStorage.getItem('qg_user');
+        let currentRole = localStorage.getItem('qg_role');
+
+        if (!currentUser || currentRole !== 'pharmacy') {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('logged-user').innerText = currentUser;
+            loadCatoQueue();
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        async function loadCatoQueue() {
+            // 1. Lekérdezzük a gyógyszertörzsből azokat a neveket, amik CATO-sak
+            const { data: catoDrugs, error: drugErr } = await _supabase
+                .from('drugs')
+                .select('drug_name, strength')
+                .eq('is_cato', true);
+
+            if (drugErr) {
+                console.error('Hiba a gyógyszertörzs lekérdezésekor:', drugErr);
+                return;
+            }
+
+            if (!catoDrugs || catoDrugs.length === 0) {
+                document.getElementById('cato-queue-body').innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nincs a gyógyszertörzsben CATO kompatibilis gyógyszer rögzítve.</td></tr>`;
+                return;
+            }
+
+            // Összeállítjuk a CATO gyógyszernevek listáját (pl. "Regkirona (40mg)")
+            // Figyelembe vesszük, hogy az inventory_receipts-ben hogyan mentettük a nevet
+            const catoNamesSet = new Set();
+            catoDrugs.forEach(d => {
+                catoNamesSet.add(`${d.drug_name} (${d.strength})`);
+                catoNamesSet.add(d.drug_name); // ha esetleg simán mentődött
+            });
+
+            // 2. Lekérdezzük az aktív raktári tételeket, amik nincsenek még CATO-zva (cato_completed = false vagy null)
+            const { data: receipts, error: recErr } = await _supabase
+                .from('inventory_receipts')
+                .select('*')
+                .gt('current_quantity', 0)
+                .or('cato_completed.is.null,cato_completed.eq.false')
+                .order('expiry_date', { ascending: true });
+
+            const tbody = document.getElementById('cato-queue-body');
+
+            if (recErr) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Hiba: ${recErr.message}</td></tr>`;
+                return;
+            }
+
+            // Szűrjük lokálisan azokat, amelyek szerepelnek a CATO gyógyszerek között
+            const filteredReceipts = (receipts || []).filter(r => {
+                // Ellenőrizzük, hogy a receipt.drug_name benne van-e a CATO halmazban
+                for (let name of catoNamesSet) {
+                    if (r.drug_name.includes(name) || name.includes(r.drug_name)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            if (filteredReceipts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nincs olyan bevételezett készlet, ami CATO-ba vitelre várna. 🎉</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            filteredReceipts.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition';
+                row.innerHTML = `
+                    <td class="p-3 text-slate-500 text-xs">${new Date(item.created_at).toLocaleDateString('hu-HU')}</td>
+                    <td class="p-3 font-medium text-indigo-900">${item.drug_name} <span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px] font-semibold ml-1">CATO</span></td>
+                    <td class="p-3 text-slate-600">${item.delivery_note_number}</td>
+                    <td class="p-3 font-semibold">${item.current_quantity} doboz</td>
+                    <td class="p-3 text-slate-600 text-xs font-semibold">${item.expiry_date}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="markCatoCompleted('${item.id}')" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-medium shadow transition">
+                            CATO-ba rögzítve ✓
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function markCatoCompleted(receiptId) {
+            const { error } = await _supabase
+                .from('inventory_receipts')
+                .update({ 
+                    cato_completed: true,
+                    cato_completed_at: new Date().toISOString(),
+                    cato_completed_by: currentUser,
+                    is_cato: true
+                })
+                .eq('id', receiptId);
+
+            if (error) {
+                alert('Hiba történt: ' + error.message);
+            } else {
+                alert('Tétel sikeresen megjelölve CATO-ba vittként! 🤖');
+                loadCatoQueue();
+            }
+        }
+    </script>
+</body>
+</html>
