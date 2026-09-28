@@ -55,12 +55,12 @@
                     <input type="text" id="receipt-batch" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. LOT2026A">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mennyiség</label>
-                    <input type="number" id="receipt-qty" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="10" min="1">
-                </div>
-                <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Lejárati dátum</label>
                     <input type="date" id="receipt-expiry" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mennyiség</label>
+                    <input type="number" id="receipt-qty" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="10" min="1">
                 </div>
             </div>
             <button onclick="saveReceipt()" class="mt-5 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium shadow-lg transition">
@@ -80,8 +80,8 @@
                             <th class="p-3 rounded-l-xl">Bevételezve</th>
                             <th class="p-3">Gyógyszer neve</th>
                             <th class="p-3">Szállítólevél / Gyártási szám</th>
-                            <th class="p-3">Kezdeti / Aktuális készlet</th>
-                            <th class="p-3 rounded-r-xl">Lejárati idő</th>
+                            <th class="p-3">Lejárati idő</th>
+                            <th class="p-3 rounded-r-xl">Kezdeti / Aktuális készlet</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-table-body" class="divide-y divide-slate-100">
@@ -126,7 +126,7 @@
 
             loadedMasterDrugs = data || [];
             const selectElem = document.getElementById('receipt-drug-select');
-            selectElem.innerHTML = '<option value="">-- Válasszon gyógyszert --</option>';
+            selectElem.innerHTML = '<option value="">-- Válasszon --</option>';
 
             loadedMasterDrugs.forEach(drug => {
                 const opt = document.createElement('option');
@@ -140,11 +140,11 @@
             const drugId = document.getElementById('receipt-drug-select').value;
             const deliveryNote = document.getElementById('receipt-delivery').value.trim();
             const batchNumber = document.getElementById('receipt-batch').value.trim();
-            const qty = parseInt(document.getElementById('receipt-qty').value);
             const expiryDate = document.getElementById('receipt-expiry').value;
+            const qty = parseInt(document.getElementById('receipt-qty').value);
 
             if (!drugId || !deliveryNote || !batchNumber || !expiryDate || isNaN(qty)) {
-                alert('Kérlek töltsd ki az összes mezőt (beleértve a gyártási számot is)!');
+                alert('Kérlek töltsd ki az összes mezőt!');
                 return;
             }
 
@@ -165,12 +165,12 @@
             if (error) {
                 alert('Hiba a bevételezéskor: ' + error.message);
             } else {
-                alert('Szállítmány gyártási számmal együtt sikeresen bevételezve! 📦');
+                alert('Szállítmány sikeresen bevételezve! 📦');
                 document.getElementById('receipt-drug-select').value = '';
                 document.getElementById('receipt-delivery').value = '';
                 document.getElementById('receipt-batch').value = '';
-                document.getElementById('receipt-qty').value = '10';
                 document.getElementById('receipt-expiry').value = '';
+                document.getElementById('receipt-qty').value = '10';
                 loadInventory();
             }
         }
@@ -205,8 +205,8 @@
                     <td class="p-3 text-slate-500 text-xs">${new Date(item.created_at).toLocaleDateString('hu-HU')}</td>
                     <td class="p-3 font-medium">${item.drug_name}</td>
                     <td class="p-3 text-slate-600">${item.delivery_note_number}<br><span class="text-xs text-indigo-600 font-mono">Gy.sz: ${item.batch_number || '-'}</span></td>
-                    <td class="p-3">${qtyBadge}</td>
                     <td class="p-3 text-slate-600 text-xs font-semibold">${item.expiry_date}</td>
+                    <td class="p-3">${qtyBadge}</td>
                 `;
                 tbody.appendChild(row);
             });
