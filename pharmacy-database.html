@@ -9,7 +9,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
-    <!-- Header & Patika Navigáció (Új Adatbázis füllel) -->
+    <!-- Header & Patika Navigáció -->
     <header class="bg-indigo-900 text-white shadow-md">
         <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center space-x-3">
@@ -17,7 +17,7 @@
                 <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
                 <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
             </div>
-            <!-- Patikai Menüsor az Adatbázis füllel -->
+            <!-- Patikai Menüsor -->
             <nav class="flex items-center space-x-2 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800 text-xs">
                 <a href="pharmacy-orders.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beérkező rendelések</a>
                 <a href="pharmacy-database.html" class="bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium shadow">Adatbázis</a>
@@ -35,13 +35,18 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
         
-        <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100 space-y-4">
+            <!-- Címsor és Keresősáv -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900 flex items-center">
-                        <span class="mr-2">🗄️</span> Kiadott gyógyszerek klinikai adatbázisa (Betegenkénti nyomkövetés)
+                        <span class="mr-2">🗄️</span> Kiadott gyógyszerek klinikai adatbázisa
                     </h2>
-                    <p class="text-xs text-slate-500 mt-1">Az osztályoknak már kiszállított tételek listája. A jelentés elkészítése után rögzíthető a státusz.</p>
+                    <p class="text-xs text-slate-500 mt-1">Az osztályoknak már kiszállított tételek listája. Keresés bármely oszlopban.</p>
+                </div>
+                <!-- Jobb oldali globális kereső -->
+                <div class="w-full md:w-72">
+                    <input type="text" id="global-search" oninput="filterDatabaseTable()" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="🔍 Keresés (név, TAJ, gyógyszer...)">
                 </div>
             </div>
 
@@ -51,7 +56,8 @@
                         <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
                             <th class="p-3 rounded-l-xl">Kiadva / Csomag</th>
                             <th class="p-3">Osztály</th>
-                            <th class="p-3">Beteg neve (TAJ)</th>
+                            <th class="p-3">Beteg neve</th>
+                            <th class="p-3">TAJ szám</th>
                             <th class="p-3">Gyógyszer</th>
                             <th class="p-3">Mennyiség</th>
                             <th class="p-3">Jelentési státusz</th>
@@ -59,7 +65,7 @@
                         </tr>
                     </thead>
                     <tbody id="database-table-body" class="divide-y divide-slate-100">
-                        <tr><td colspan="7" class="p-4 text-center text-slate-400">Adatbázis betöltése...</td></tr>
+                        <tr><td colspan="8" class="p-4 text-center text-slate-400">Adatbázis betöltése...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -76,6 +82,7 @@
 
         let currentUser = localStorage.getItem('qg_user');
         let currentRole = localStorage.getItem('qg_role');
+        let rawDatabaseOrders = [];
 
         if (!currentUser || currentRole !== 'pharmacy') {
             window.location.href = 'index.html';
@@ -90,27 +97,31 @@
         }
 
         async function loadDispensedDatabase() {
-            // Lekérdezzük azokat a rendeléseket, amelyek már ki vannak adva (dispensed) vagy már jelentve lettek (reported)
             const { data, error } = await _supabase
                 .from('orders')
                 .select('*')
                 .in('status', ['dispensed', 'reported'])
                 .order('created_at', { ascending: false });
 
-            const tbody = document.getElementById('database-table-body');
-
             if (error) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
+                document.getElementById('database-table-body').innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
                 return;
             }
 
-            if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Nincs még kiadott gyógyszer az adatbázisban.</td></tr>`;
+            rawDatabaseOrders = data || [];
+            renderTable(rawDatabaseOrders);
+        }
+
+        function renderTable(dataToRender) {
+            const tbody = document.getElementById('database-table-body');
+
+            if (!dataToRender || dataToRender.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400">Nincs a feltételeknek megfelelő tétel az adatbázisban.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = '';
-            data.forEach(item => {
+            dataToRender.forEach(item => {
                 let statusBadge = '';
                 if (item.status === 'dispensed') {
                     statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
@@ -130,7 +141,8 @@
                         <strong class="font-mono text-indigo-900">${item.order_batch_id || '-'}</strong>
                     </td>
                     <td class="p-3 font-medium text-slate-700">${item.ward_name}</td>
-                    <td class="p-3 font-semibold text-slate-900">${item.patient_name} <span class="text-xs text-slate-400 font-normal">(${item.patient_identifier || 'Nincs TAJ'})</span></td>
+                    <td class="p-3 font-semibold text-slate-900">${item.patient_name}</td>
+                    <td class="p-3 font-mono text-xs text-slate-600">${item.patient_identifier || '-'}</td>
                     <td class="p-3">
                         ${item.drug_name}
                         ${item.delivery_note_number ? `<br><span class="text-[10px] text-slate-500 font-mono">Sz.lev: ${item.delivery_note_number} \vert{} Gy.sz:${item.batch_number || '-'}</span>` : ''}
@@ -141,6 +153,32 @@
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        // Globális keresőfüggvény, ami minden oszlopban keres
+        function filterDatabaseTable() {
+            const query = document.getElementById('global-search').value.toLowerCase().trim();
+            if (!query) {
+                renderTable(rawDatabaseOrders);
+                return;
+            }
+
+            const filtered = rawDatabaseOrders.filter(item => {
+                const textToSearch = `
+                    ${item.order_batch_id || ''} 
+                    ${item.ward_name || ''} 
+                    ${item.patient_name || ''} 
+                    ${item.patient_identifier || ''} 
+                    ${item.drug_name || ''} 
+                    ${item.delivery_note_number || ''} 
+                    ${item.batch_number || ''} 
+                    ${item.status || ''}
+                `.toLowerCase();
+
+                return textToSearch.includes(query);
+            });
+
+            renderTable(filtered);
         }
 
         async function markAsReported(orderId) {
