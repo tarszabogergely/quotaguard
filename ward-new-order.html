@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuotaGuard - Új rendelés feladása</title>
+    <title>QuotaGuard - Új rendelés csomag</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -31,33 +31,36 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-5xl w-full mx-auto p-4 md:p-6">
         <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-slate-100 mt-4 space-y-6">
-            <div class="flex justify-between items-center border-b pb-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-4">
                 <h2 class="text-xl font-bold text-slate-900 flex items-center">
-                    <span class="mr-2">📝</span> Új gyógyszerigény leadása
+                    <span class="mr-2">📦</span> Új gyógyszercsomag összeállítása
                 </h2>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mikorra kérik az átvételt?</label>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kért átvételi időpont</label>
                     <input type="datetime-local" id="global-pickup-date" class="px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
             </div>
 
-            <!-- Itt gyűlnek a gyógyszer blokkok -->
+            <!-- Gyógyszer blokkok konténer -->
             <div id="drug-blocks-container" class="space-y-6">
-                <!-- A dinamikus blokkok ide kerülnek -->
+                <!-- Dinamikus blokkok -->
             </div>
 
-            <!-- Új gyógyszer választása gomb -->
+            <!-- Új gyógyszer választása -->
             <div>
                 <button onclick="addDrugBlock()" class="w-full py-3.5 border-2 border-dashed border-indigo-300 hover:border-indigo-500 text-indigo-700 hover:bg-indigo-50 rounded-2xl text-sm font-semibold transition flex items-center justify-center space-x-2 shadow-sm">
                     <span class="text-lg">＋</span>
-                    <span>Új gyógyszer választása</span>
+                    <span>Új gyógyszer hozzáadása a csomaghoz</span>
                 </button>
             </div>
 
             <!-- Küldés gomb -->
-            <div class="pt-4 border-t">
-                <button onclick="submitOrders()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 rounded-xl text-base font-semibold shadow-lg transition flex items-center justify-center space-x-2">
-                    <span>Rendelés elküldése a Patikának</span>
+            <div class="pt-4 border-t flex items-center justify-between">
+                <div class="text-sm text-slate-600">
+                    Összesen: <strong id="total-boxes-preview" class="text-indigo-900">0</strong> doboz a csomagban
+                </div>
+                <button onclick="submitOrderPackage()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3.5 rounded-xl text-base font-semibold shadow-lg transition flex items-center space-x-2">
+                    <span>Csomag elküldése a Patikának</span>
                     <span>🛡️</span>
                 </button>
             </div>
@@ -81,7 +84,6 @@
             document.getElementById('logged-user').innerText = currentUser;
             document.getElementById('ward-badge').innerText = currentWard;
             
-            // Alapértelmezett dátum beállítása holnapra
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             tomorrow.setHours(8, 0, 0, 0);
@@ -101,13 +103,10 @@
                 console.error('Hiba:', error);
                 return;
             }
-
             loadedDrugs = data || [];
-            // Indításkor létrehozunk egy alap gyógyszer blokkot
             addDrugBlock();
         }
 
-        // Új gyógyszer blokk hozzáadása
         function addDrugBlock() {
             const container = document.getElementById('drug-blocks-container');
             const blockIndex = document.querySelectorAll('.drug-block').length;
@@ -121,7 +120,6 @@
 
             const blockDiv = document.createElement('div');
             blockDiv.className = 'drug-block bg-slate-50 border border-slate-200 rounded-2xl p-5 relative space-y-4 shadow-sm';
-            blockDiv.dataset.index = blockIndex;
 
             let deleteBtnHtml = blockIndex > 0 ? `
                 <button onclick="removeDrugBlock(this)" class="absolute top-4 right-4 text-red-500 hover:text-red-700 bg-white border border-red-200 px-3 py-1 rounded-xl text-xs font-semibold shadow-sm transition">
@@ -132,8 +130,7 @@
                 ${deleteBtnHtml}
                 <div class="font-bold text-xs uppercase text-indigo-900 tracking-wider">Gyógyszer tétel #${blockIndex + 1}</div>
                 
-                <!-- Gyógyszer adatok (Fókuszban) -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div class="md:col-span-2">
                         <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve *</label>
                         <select class="drug-select w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none" onchange="onDrugChange(this)">
@@ -141,27 +138,24 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatáserősség & Kiszerelés</label>
-                        <input type="text" class="drug-details w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-500" readonly placeholder="automata">
-                    </div>
-                    <div>
                         <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mennyiség (doboz) *</label>
-                        <input type="number" class="drug-qty w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="1" min="1">
+                        <input type="number" class="drug-qty w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="1" min="1" oninput="updateTotalPreview()">
                     </div>
-                    <div class="md:col-span-4">
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Indikáció (Hivatalos protokoll)</label>
-                        <input type="text" class="drug-indication w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-500" readonly placeholder="automata">
+                    <div class="md:col-span-3">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatáserősség, Kiszerelés & Indikáció</label>
+                        <input type="text" class="drug-details w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-500" readonly placeholder="automata kitöltés">
                     </div>
                 </div>
 
-                <!-- Beteg adatok sora(k) -->
+                <!-- Beteg adatok -->
                 <div class="border-t pt-3 space-y-2">
-                    <div class="text-xs font-semibold text-slate-700 uppercase">Beteg adatok</div>
+                    <div class="text-xs font-semibold text-slate-700 uppercase">Kedvezményezett betegek (személyenkénti bontás)</div>
                     <div class="patients-container space-y-2">
                         <div class="patient-row flex items-center gap-2">
                             <input type="text" class="patient-name flex-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Beteg neve *">
-                            <input type="text" class="patient-id flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="TAJ szám (opcionális)">
-                            <button type="button" onclick="removePatientRow(this)" class="px-3 py-2 text-slate-400 hover:text-red-500 text-sm" style="visibility: hidden;">✕</button>
+                            <input type="text" class="patient-id flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="TAJ szám">
+                            <input type="number" class="patient-qty w-24 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="1" min="1" placeholder="Doboz">
+                            <button type="button" onclick="removePatientRow(this)" class="px-2 py-2 text-slate-400 hover:text-red-500 text-sm" style="visibility: hidden;">✕</button>
                         </div>
                     </div>
                     <button type="button" onclick="addPatientRow(this)" class="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center space-x-1">
@@ -171,10 +165,12 @@
             `;
 
             container.appendChild(blockDiv);
+            updateTotalPreview();
         }
 
         function removeDrugBlock(btn) {
             btn.closest('.drug-block').remove();
+            updateTotalPreview();
         }
 
         function addPatientRow(btn) {
@@ -183,16 +179,15 @@
             newRow.className = 'patient-row flex items-center gap-2';
             newRow.innerHTML = `
                 <input type="text" class="patient-name flex-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Beteg neve *">
-                <input type="text" class="patient-id flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="TAJ szám (opcionális)">
-                <button type="button" onclick="removePatientRow(this)" class="px-3 py-2 text-slate-400 hover:text-red-500 text-sm">✕</button>
+                <input type="text" class="patient-id flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="TAJ szám">
+                <input type="number" class="patient-qty w-24 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="1" min="1" placeholder="Doboz">
+                <button type="button" onclick="removePatientRow(this)" class="px-2 py-2 text-slate-400 hover:text-red-500 text-sm">✕</button>
             `;
             container.appendChild(newRow);
             
-            // Ha egynél több sor van, minden sornál látszódjon a törlés gomb
             const rows = container.querySelectorAll('.patient-row');
             rows.forEach((r, idx) => {
-                const delBtn = r.querySelector('button');
-                delBtn.style.visibility = idx === 0 && rows.length === 1 ? 'hidden' : 'visible';
+                r.querySelector('button').style.visibility = idx === 0 && rows.length === 1 ? 'hidden' : 'visible';
             });
         }
 
@@ -213,27 +208,37 @@
             const drug = loadedDrugs.find(d => d.id === drugId);
 
             if (drug) {
-                block.querySelector('.drug-details').value = `${drug.strength} - ${drug.package_form}`;
-                block.querySelector('.drug-indication').value = drug.approved_indication;
+                block.querySelector('.drug-details').value = `${drug.strength} - ${drug.package_form} | Indikáció: ${drug.approved_indication}`;
             } else {
                 block.querySelector('.drug-details').value = '';
-                block.querySelector('.drug-indication').value = '';
             }
         }
 
-        async function submitOrders() {
+        function updateTotalPreview() {
+            let total = 0;
+            document.querySelectorAll('.drug-qty').forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            document.getElementById('total-boxes-preview').innerText = total;
+        }
+
+        async function submitOrderPackage() {
             const pickupDate = document.getElementById('global-pickup-date').value;
             if (!pickupDate) {
-                alert('Kérlek add meg az átvétel időpontját!');
+                alert('Kérlek add meg a kért átvételi időpontot!');
                 return;
             }
 
+            // Generálunk egyedi rendelési azonosítót (pl. QG-2026-9481)
+            const batchId = 'QG-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
             const drugBlocks = document.querySelectorAll('.drug-block');
             const ordersToInsert = [];
+            let grandTotalBoxes = 0;
 
             for (let block of drugBlocks) {
                 const drugSelectId = block.querySelector('.drug-select').value;
-                const qty = parseInt(block.querySelector('.drug-qty').value);
+                const totalQty = parseInt(block.querySelector('.drug-qty').value) || 1;
+                grandTotalBoxes += totalQty;
 
                 if (!drugSelectId) {
                     alert('Minden blokkban ki kell választani egy gyógyszert!');
@@ -246,6 +251,7 @@
                 for (let prow of patientRows) {
                     const pName = prow.querySelector('.patient-name').value.trim();
                     const pId = prow.querySelector('.patient-id').value.trim();
+                    const pQty = parseInt(prow.querySelector('.patient-qty').value) || 1;
 
                     if (!pName) {
                         alert('A beteg neve minden sorban kötelező!');
@@ -253,29 +259,25 @@
                     }
 
                     ordersToInsert.push({
+                        order_batch_id: batchId,
                         ward_name: currentWard,
                         patient_name: pName,
                         patient_identifier: pId || null,
                         drug_name: `${selectedDrug.drug_name} (${selectedDrug.strength})`,
                         indication: selectedDrug.approved_indication,
-                        quantity: isNaN(qty) ? 1 : qty,
+                        quantity: pQty,
                         requested_pickup_date: pickupDate,
                         status: 'pending'
                     });
                 }
             }
 
-            if (ordersToInsert.length === 0) {
-                alert('Nincs mit elküldeni!');
-                return;
-            }
-
             const { error } = await _supabase.from('orders').insert(ordersToInsert);
 
             if (error) {
-                alert('Hiba a rendelés mentésekor: ' + error.message);
+                alert('Hiba a csomag mentésekor: ' + error.message);
             } else {
-                alert('Rendelések sikeresen elküldve a Patikának! 🛡️');
+                alert(`Csomag sikeresen elküldve! Rendelési azonosító: ${batchId} 🛡️`);
                 window.location.href = 'ward-my-orders.html';
             }
         }
