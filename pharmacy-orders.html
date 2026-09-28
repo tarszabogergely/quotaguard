@@ -198,6 +198,7 @@
                     </div>
                 `;
 
+                // Csak akkor megy a teljesítettek közé, ha ki van adva ÉS minden tétel jelentve van
                 if (batch.status === 'dispensed' && allReported) {
                     completedCount++;
                     completedContainer.innerHTML += cardHtml;
@@ -229,7 +230,7 @@
                             <tr>
                                 <th class="p-2.5">Gyógyszer</th>
                                 <th class="p-2.5">Beteg neve (TAJ)</th>
-                                <th class="p-2.5">Szállítólevél / Gyártási szám</th>
+                                <th class="p-2.5">Szállítólevél | Gy.sz</th>
                                 <th class="p-2.5">Beteg állapota</th>
                                 <th class="p-2.5 text-right">Mennyiség</th>
                             </tr>
@@ -247,7 +248,7 @@
                 let itemStatusBadge = '';
                 if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
                 else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítva</span>';
-                else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
+                else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
                 else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
 
                 contentHtml += `
@@ -334,7 +335,7 @@
 
                 for (let inv of inventory) {
                     if (remaining <= 0) break;
-                    if (inv.drug_name === ord.drug_name || ord.drug_name.includes(inv.drug_name) || inv.drug_name.includes(ord.drug_name)) {
+                    if (inv.drug_name === ord.drug_name || ord.drug_name.includes(inv.drug_name) || ord.drug_name.includes(ord.drug_name)) {
                         let take = Math.min(inv.current_quantity, remaining);
                         if (take > 0) {
                             assignedDelivery = inv.delivery_note_number;
