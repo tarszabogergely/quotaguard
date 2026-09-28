@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuotaGuard - Patika: Rendelések kezelése</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header & Patika Navigáció -->
+    <header class="bg-indigo-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🛡️</span>
+                <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
+                <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
+            </div>
+            <!-- Gyógyszertári menüsor -->
+            <nav class="flex items-center space-x-2 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800 text-xs">
+                <a href="pharmacy-orders.html" class="bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium shadow">Beérkező rendelések</a>
+                <a href="pharmacy-inventory.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Bevétel & Készlet</a>
+                <a href="pharmacy-settings.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beállítások</a>
+            </nav>
+            <div class="text-sm text-indigo-200 flex items-center space-x-3">
+                <span><strong id="logged-user" class="text-white"></strong></span>
+                <button onclick="logout()" class="bg-indigo-800 hover:bg-indigo-700 px-3 py-1 rounded-lg text-xs transition">Kilépés</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+        
+        <!-- Függőben lévő / Aktív rendelések -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+            <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                <span class="mr-2">📥</span> Osztályoktól érkezett aktív rendelések
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
+                            <th class="p-3 rounded-l-xl">Osztály / Dátum</th>
+                            <th class="p-3">Beteg (TAJ)</th>
+                            <th class="p-3">Gyógyszer & Indikáció</th>
+                            <th class="p-3">Mennyiség</th>
+                            <th class="p-3">Státusz</th>
+                            <th class="p-3 rounded-r-xl text-right">Művelet</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-orders-body" class="divide-y divide-slate-100">
+                        <tr><td colspan="6" class="p-4 text-center text-slate-400">Rendelések betöltése...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Korábbi teljesített rendelések -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+            <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                <span class="mr-2">📚</span> Korábbi teljesített rendelések (Archívum)
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
+                            <th class="p-3 rounded-l-xl">Teljesítve</th>
+                            <th class="p-3">Osztály</th>
+                            <th class="p-3">Beteg (TAJ)</th>
+                            <th class="p-3">Gyógyszer</th>
+                            <th class="p-3">Mennyiség</th>
+                            <th class="p-3 rounded-r-xl">Státusz</th>
+                        </tr>
+                    </thead>
+                    <tbody id="completed-orders-body" class="divide-y divide-slate-100">
+                        <tr><td colspan="6" class="p-4 text-center text-slate-400">Archívum betöltése...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://qglicccrflohqkhadthc.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_kdK4lOXv11t_zzbSa7H4qA_YyhhPu1N';
+
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = localStorage.getItem('qg_user');
+        let currentRole = localStorage.getItem('qg_role');
+
+        if (!currentUser || currentRole !== 'pharmacy') {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('logged-user').innerText = currentUser;
+            loadPharmacyOrders();
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        async function loadPharmacyOrders() {
+            const { data, error } = await _supabase
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            const activeTbody = document.getElementById('active-orders-body');
+            const completedTbody = document.getElementById('completed-orders-body');
+
+            if (error) {
+                activeTbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                activeTbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nincsenek rendelések a rendszerben.</td></tr>`;
+                completedTbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nincs archív elem.</td></tr>`;
+                return;
+            }
+
+            activeTbody.innerHTML = '';
+            completedTbody.innerHTML = '';
+
+            let activeCount = 0;
+            let completedCount = 0;
+
+            data.forEach(order => {
+                if (order.status === 'pending' || order.status === 'assembled') {
+                    activeCount++;
+                    let statusBadge = order.status === 'pending' 
+                        ? '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>'
+                        : '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva</span>';
+
+                    let actionBtn = order.status === 'pending'
+                        ? `<button onclick="updateOrderStatus('${order.id}', 'assembled')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow transition">Összeállítás kész</button>`
+                        : `<button onclick="updateOrderStatus('${order.id}', 'dispensed')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow transition">Kiadás az Osztálynak</button>`;
+
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-50 transition';
+                    row.innerHTML = `
+                        <td class="p-3"><strong>${order.ward_name}</strong><br><span class="text-xs text-slate-400">${new Date(order.created_at).toLocaleString('hu-HU')}</span></td>
+                        <td class="p-3 font-medium">${order.patient_name}<br><span class="text-xs text-slate-400">${order.patient_identifier || ''}</span></td>
+                        <td class="p-3"><strong>${order.drug_name}</strong><br><span class="text-xs text-slate-500 italic">${order.indication}</span></td>
+                        <td class="p-3 font-semibold">${order.quantity} doboz</td>
+                        <td class="p-3">${statusBadge}</td>
+                        <td class="p-3 text-right">${actionBtn}</td>
+                    `;
+                    activeTbody.appendChild(row);
+                } else {
+                    completedCount++;
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-slate-50 transition';
+                    row.innerHTML = `
+                        <td class="p-3 text-slate-500 text-xs">${new Date(order.created_at).toLocaleString('hu-HU')}</td>
+                        <td class="p-3 font-medium">${order.ward_name}</td>
+                        <td class="p-3">${order.patient_name} (${order.patient_identifier || '-'})</td>
+                        <td class="p-3">${order.drug_name}</td>
+                        <td class="p-3">${order.quantity} doboz</td>
+                        <td class="p-3"><span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span></td>
+                    `;
+                    completedTbody.appendChild(row);
+                }
+            });
+
+            if (activeCount === 0) {
+                activeTbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nincs függőben lévő rendelés.</td></tr>`;
+            }
+            if (completedCount === 0) {
+                completedTbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nincs még teljesített rendelés.</td></tr>`;
+            }
+        }
+
+        async function updateOrderStatus(orderId, newStatus) {
+            const { error } = await _supabase
+                .from('orders')
+                .update({ status: newStatus })
+                .eq('id', orderId);
+
+            if (error) {
+                alert('Hiba történt a státusz frissítésekor: ' + error.message);
+            } else {
+                loadPharmacyOrders();
+            }
+        }
+    </script>
+</body>
+</html>
