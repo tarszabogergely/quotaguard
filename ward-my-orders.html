@@ -103,7 +103,6 @@
                 return;
             }
 
-            // Csoportosítás batch_id alapján
             const batches = {};
             allWardOrders.forEach(order => {
                 const bId = order.order_batch_id || ('ID-' + order.id.slice(0, 8));
@@ -123,20 +122,37 @@
                 let totalBoxes = batch.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
                 let patientsCount = new Set(batch.items.map(i => i.patient_name)).size;
                 
-                // Megszámoljuk, hány elem nincs még lejelentve (azaz nem 'reported')
                 let pendingReportCount = batch.items.filter(i => i.status !== 'reported').length;
                 let allReported = pendingReportCount === 0;
 
+                // Státusz jelölő a csomagnál (függőben, összeállítva, kiadva)
                 let statusBadge = '';
+                let hasDispensed = batch.items.some(i => i.status === 'dispensed');
+                let hasAssembled = batch.items.some(i => i.status === 'assembled');
+                
+                if (hasDispensed || allReported) statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
+                else if (hasAssembled) statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva a Patikában</span>';
+                else statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
+
+                // A kért vizuális blokk az összesen doboz mellé balra
+                let reportIndicatorHtml = '';
                 if (allReported) {
-                    statusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-semibold">Minden tétel lejelentve ✓</span>';
+                    reportIndicatorHtml = `
+                        <div class="flex items-center space-x-1 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                            <span class="text-lg font-bold">✓</span>
+                            <span class="text-xs font-semibold">Minden jelentve</span>
+                        </div>
+                    `;
                 } else {
-                    let hasDispensed = batch.items.some(i => i.status === 'dispensed');
-                    let hasAssembled = batch.items.some(i => i.status === 'assembled');
-                    
-                    if (hasDispensed) statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva (${pendingReportCount} még nem jelentve)</span>`;
-                    else if (hasAssembled) statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva a Patikában</span>';
-                    else statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
+                    reportIndicatorHtml = `
+                        <div class="flex items-center space-x-2 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200 text-right">
+                            <span class="text-red-600 font-bold text-base">✕</span>
+                            <div class="text-[11px] leading-tight">
+                                <span class="text-red-700 font-semibold block">Nem jelentve:</span>
+                                <span class="text-red-900 font-bold">${pendingReportCount} tétel</span>
+                            </div>
+                        </div>
+                    `;
                 }
 
                 const cardHtml = `
@@ -150,6 +166,7 @@
                             <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Kért átvétel: ${batch.pickupDate ? new Date(batch.pickupDate).toLocaleString('hu-HU') : '-'}</div>
                         </div>
                         <div class="flex items-center space-x-4 self-end md:self-center">
+                            ${reportIndicatorHtml}
                             <div class="text-right">
                                 <span class="text-xs text-slate-400 block">Összesen</span>
                                 <strong class="text-base text-indigo-900">${totalBoxes} doboz</strong>
