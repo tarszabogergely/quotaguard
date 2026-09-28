@@ -38,7 +38,7 @@
         <!-- Aktív Csomagok Listája -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📥</span> Osztályoktól érkezett rendelési csomagok
+                <span class="mr-2">📥</span> Osztályoktól érkezett rendelési csomagok (Függőben / Összeállítás alatt)
             </h2>
             <div id="active-packages-container" class="space-y-4">
                 <div class="p-6 text-center text-slate-400">Csomagok betöltése...</div>
@@ -48,7 +48,7 @@
         <!-- Korábbi teljesített csomagok -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📚</span> Teljesített csomagok archívuma
+                <span class="mr-2">📚</span> Teljesített csomagok archívuma (Kiadva az osztálynak)
             </h2>
             <div id="completed-packages-container" class="space-y-4">
                 <div class="p-6 text-center text-slate-400">Archívum betöltése...</div>
@@ -151,10 +151,18 @@
                 let pendingReportCount = batch.items.filter(i => i.status !== 'reported').length;
                 let allReported = pendingReportCount === 0;
 
+                // Csomag szintű státusz vizsgálat az elemek alapján
+                let hasDispensed = batch.items.some(i => i.status === 'dispensed' || i.status === 'reported');
+                let hasAssembled = batch.items.some(i => i.status === 'assembled');
+
                 let statusBadge = '';
-                if (batch.status === 'pending') statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
-                else if (batch.status === 'assembled') statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva</span>';
-                else if (batch.status === 'dispensed') statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
+                if (hasDispensed || allReported && batch.status === 'dispensed') {
+                    statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
+                } else if (hasAssembled) {
+                    statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva</span>';
+                } else {
+                    statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
+                }
 
                 // Vizuális jelentés indikátor (piros X vagy zöld pipa)
                 let reportIndicatorHtml = '';
@@ -198,8 +206,10 @@
                     </div>
                 `;
 
-                // Csak akkor megy a teljesítettek közé, ha ki van adva ÉS minden tétel jelentve van
-                if (batch.status === 'dispensed' && allReported) {
+                // ITT A LÉNYEG: Ha a csomag ki lett adva (dispensed vagy reported), akkor alulra kerül az archívumba, függetlenül attól, hogy van-e még nem jelentett tétel!
+                const isFullyDispensed = batch.items.every(i => i.status === 'dispensed' || i.status === 'reported');
+
+                if (isFullyDispensed) {
                     completedCount++;
                     completedContainer.innerHTML += cardHtml;
                 } else {
@@ -208,8 +218,8 @@
                 }
             });
 
-            if (activeCount === 0) activeContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs aktív vagy lezáratlan rendelési csomag.</div>';
-            if (completedCount === 0) completedContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs teljesen lejelentett csomag az archívumban.</div>';
+            if (activeCount === 0) activeContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs aktív vagy függőben lévő rendelési csomag.</div>';
+            if (completedCount === 0) completedContainer.innerHTML = '<div class="p-6 text-center text-slate-400">Nincs kiadott csomag az archívumban.</div>';
         }
 
         function openBatchModal(batchId) {
@@ -335,7 +345,7 @@
 
                 for (let inv of inventory) {
                     if (remaining <= 0) break;
-                    if (inv.drug_name === ord.drug_name || ord.drug_name.includes(inv.drug_name) || ord.drug_name.includes(ord.drug_name)) {
+                    if (inv.drug_name === ord.drug_name || ord.drug_name.includes(inv.drug_name) || inv.drug_name.includes(ord.drug_name)) {
                         let take = Math.min(inv.current_quantity, remaining);
                         if (take > 0) {
                             assignedDelivery = inv.delivery_note_number;
