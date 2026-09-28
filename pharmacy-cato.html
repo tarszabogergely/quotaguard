@@ -17,7 +17,7 @@
                 <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
                 <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
             </div>
-            <!-- Frissített Gyógyszertári menüsor (CATO a Beállítások előtt) -->
+            <!-- Egységesített Patikai Menüsor -->
             <nav class="flex items-center space-x-2 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800 text-xs">
                 <a href="pharmacy-orders.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beérkező rendelések</a>
                 <a href="pharmacy-inventory.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Bevétel & Készlet</a>
@@ -50,9 +50,9 @@
                         <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
                             <th class="p-3 rounded-l-xl">Bevételezve</th>
                             <th class="p-3">Gyógyszer neve</th>
-                            <th class="p-3">Szállítólevél</th>
-                            <th class="p-3">Aktuális készlet</th>
+                            <th class="p-3">Gyártási szám</th>
                             <th class="p-3">Lejárati idő</th>
+                            <th class="p-3">Mennyiség</th>
                             <th class="p-3 rounded-r-xl text-right">Művelet</th>
                         </tr>
                     </thead>
@@ -88,7 +88,6 @@
         }
 
         async function loadCatoQueue() {
-            // 1. Lekérdezzük a gyógyszertörzsből azokat a neveket, amik CATO-sak
             const { data: catoDrugs, error: drugErr } = await _supabase
                 .from('drugs')
                 .select('drug_name, strength')
@@ -104,15 +103,12 @@
                 return;
             }
 
-            // Összeállítjuk a CATO gyógyszernevek listáját (pl. "Regkirona (40mg)")
-            // Figyelembe vesszük, hogy az inventory_receipts-ben hogyan mentettük a nevet
             const catoNamesSet = new Set();
             catoDrugs.forEach(d => {
                 catoNamesSet.add(`${d.drug_name} (${d.strength})`);
-                catoNamesSet.add(d.drug_name); // ha esetleg simán mentődött
+                catoNamesSet.add(d.drug_name);
             });
 
-            // 2. Lekérdezzük az aktív raktári tételeket, amik nincsenek még CATO-zva (cato_completed = false vagy null)
             const { data: receipts, error: recErr } = await _supabase
                 .from('inventory_receipts')
                 .select('*')
@@ -127,9 +123,7 @@
                 return;
             }
 
-            // Szűrjük lokálisan azokat, amelyek szerepelnek a CATO gyógyszerek között
             const filteredReceipts = (receipts || []).filter(r => {
-                // Ellenőrizzük, hogy a receipt.drug_name benne van-e a CATO halmazban
                 for (let name of catoNamesSet) {
                     if (r.drug_name.includes(name) || name.includes(r.drug_name)) {
                         return true;
@@ -150,9 +144,9 @@
                 row.innerHTML = `
                     <td class="p-3 text-slate-500 text-xs">${new Date(item.created_at).toLocaleDateString('hu-HU')}</td>
                     <td class="p-3 font-medium text-indigo-900">${item.drug_name} <span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px] font-semibold ml-1">CATO</span></td>
-                    <td class="p-3 text-slate-600">${item.delivery_note_number}</td>
-                    <td class="p-3 font-semibold">${item.current_quantity} doboz</td>
+                    <td class="p-3 font-mono text-xs font-semibold text-indigo-700">${item.batch_number || '-'}</td>
                     <td class="p-3 text-slate-600 text-xs font-semibold">${item.expiry_date}</td>
+                    <td class="p-3 font-semibold">${item.current_quantity} doboz</td>
                     <td class="p-3 text-right">
                         <button onclick="markCatoCompleted('${item.id}')" class="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-medium shadow transition">
                             CATO-ba rögzítve ✓
