@@ -40,8 +40,10 @@
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve / Hatóanyag</label>
-                    <input type="text" id="receipt-drug" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Regkirona 40mg">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer kiválasztása (Törzsből)</label>
+                    <select id="receipt-drug-select" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="">-- Válasszon gyógyszert --</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Szállítólevél száma</label>
@@ -95,11 +97,13 @@
 
         let currentUser = localStorage.getItem('qg_user');
         let currentRole = localStorage.getItem('qg_role');
+        let loadedMasterDrugs = [];
 
         if (!currentUser || currentRole !== 'pharmacy') {
             window.location.href = 'index.html';
         } else {
             document.getElementById('logged-user').innerText = currentUser;
+            loadMasterDrugs();
             loadInventory();
         }
 
@@ -108,21 +112,43 @@
             window.location.href = 'index.html';
         }
 
+        async function loadMasterDrugs() {
+            const { data, error } = await _supabase.from('drugs').select('*');
+            if (error) {
+                console.error('Hiba a gyógyszertörzs betöltésekor:', error);
+                return;
+            }
+
+            loadedMasterDrugs = data || [];
+            const selectElem = document.getElementById('receipt-drug-select');
+            selectElem.innerHTML = '<option value="">-- Válasszon gyógyszert --</option>';
+
+            loadedMasterDrugs.forEach(drug => {
+                const opt = document.createElement('option');
+                opt.value = drug.id;
+                opt.innerText = `${drug.drug_name} (${drug.strength} - ${drug.package_form})`;
+                selectElem.appendChild(opt);
+            });
+        }
+
         async function saveReceipt() {
-            const drugName = document.getElementById('receipt-drug').value.trim();
+            const drugId = document.getElementById('receipt-drug-select').value;
             const deliveryNote = document.getElementById('receipt-delivery').value.trim();
             const qty = parseInt(document.getElementById('receipt-qty').value);
             const expiryDate = document.getElementById('receipt-expiry').value;
 
-            if (!drugName || !deliveryNote || !expiryDate || isNaN(qty)) {
-                alert('Kérlek töltsd ki az összes mezőt a bevételezéshez!');
+            if (!drugId || !deliveryNote || !expiryDate || isNaN(qty)) {
+                alert('Kérlek válassz gyógyszert a listából, és töltsd ki az összes mezőt!');
                 return;
             }
+
+            const selectedDrug = loadedMasterDrugs.find(d => d.id === drugId);
+            const fullDrugName = `${selectedDrug.drug_name} (${selectedDrug.strength})`;
 
             const { error } = await _supabase
                 .from('inventory_receipts')
                 .insert([{
-                    drug_name: drugName,
+                    drug_name: fullDrugName,
                     delivery_note_number: deliveryNote,
                     initial_quantity: qty,
                     current_quantity: qty,
@@ -132,8 +158,8 @@
             if (error) {
                 alert('Hiba a bevételezéskor: ' + error.message);
             } else {
-                alert('Szállítmány sikeresen bevételezve! 📦');
-                document.getElementById('receipt-drug').value = '';
+                alert('Szállítmány sikeresen bevételezve a törzsből! 📦');
+                document.getElementById('receipt-drug-select').value = '';
                 document.getElementById('receipt-delivery').value = '';
                 document.getElementById('receipt-qty').value = '10';
                 document.getElementById('receipt-expiry').value = '';
@@ -142,7 +168,6 @@
         }
 
         async function loadInventory() {
-            // FIFO elv: a legrégebbi bevételezés vagy a legközelebbi lejárati idő szerint rendezzük
             const { data, error } = await _supabase
                 .from('inventory_receipts')
                 .select('*')
@@ -162,7 +187,6 @@
 
             tbody.innerHTML = '';
             data.forEach(item => {
-                // Készlet színkód vagy badge ha elfogyott vagy alacsony
                 let qtyBadge = item.current_quantity > 0 
                     ? `<span class="font-semibold text-slate-800">${item.current_quantity}</span> / <span class="text-slate-400">${item.initial_quantity} doboz</span>`
                     : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs font-semibold">Elfogyott (0)</span>`;
