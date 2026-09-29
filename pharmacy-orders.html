@@ -509,7 +509,7 @@
             document.body.classList.remove('print-labels');
         }
 
-        // A4-es Összesítő nyomtatása új, tiszta ablakban
+        // A4-es Összesítő nyomtatása rejtett iframe-mel (Pop-up blokkoló biztos megoldás)
         function printA4Summary() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
@@ -533,8 +533,22 @@
                 `;
             });
 
-            const printWindow = window.open('', '_blank', 'width=900,height=700');
-            printWindow.document.write(`
+            // Meglévő iframe törlése, ha maradt volna
+            const existingIframe = document.getElementById('print-iframe');
+            if (existingIframe) existingIframe.remove();
+
+            // Új rejtett iframe létrehozása a dokumentumban
+            const iframe = document.createElement('iframe');
+            iframe.id = 'print-iframe';
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0px';
+            iframe.style.height = '0px';
+            iframe.style.border = 'none';
+            document.body.appendChild(iframe);
+
+            const doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(`
                 <!DOCTYPE html>
                 <html lang="hu">
                 <head>
@@ -603,14 +617,15 @@
                     </div>
                     <script>
                         window.onload = function() {
-                            window.print();
-                            window.close();
+                            setTimeout(function() {
+                                window.print();
+                            }, 200);
                         };
                     </script>
                 </body>
                 </html>
             `);
-            printWindow.document.close();
+            doc.close();
         }
     </script>
 </body>
