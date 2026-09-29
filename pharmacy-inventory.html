@@ -72,7 +72,7 @@
         <!-- 2. Aktuális raktárkészlet -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📊</span> Aktuális Raktárkészlet (FIFO tételenként)
+                <span class="mr-2">📊</span> Aktuális Raktárkészlet (FIFO tételenként) - Kattints egy sorra a részletekért!
             </h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
@@ -93,6 +93,19 @@
         </div>
 
     </main>
+
+    <!-- Felugró Modális Ablak a Tétel Mozgásaihoz -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="modal-title" class="text-base font-bold text-slate-900">Szállítmány kiadási előzményei</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+            </div>
+            <div id="modal-content" class="text-sm">
+                <!-- Dinamikus tartalom -->
+            </div>
+        </div>
+    </div>
 
     <script>
         const SUPABASE_URL = 'https://qglicccrflohqkhadthc.supabase.co';
@@ -198,10 +211,11 @@
             data.forEach(item => {
                 let qtyBadge = item.current_quantity > 0 
                     ? `<span class="font-semibold text-slate-800">${item.current_quantity}</span> / <span class="text-slate-400">${item.initial_quantity} doboz</span>`
-                    : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs font-semibold">Elfogyott (0)</span>`;
+                    : `<span class="bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold">Elfogyott (0)</span>`;
 
                 const row = document.createElement('tr');
-                row.className = 'hover:bg-slate-50 transition';
+                row.className = 'hover:bg-indigo-50/50 cursor-pointer transition';
+                row.onclick = () => openItemHistoryModal(item);
                 row.innerHTML = `
                     <td class="p-3 text-slate-500 text-xs">${new Date(item.created_at).toLocaleDateString('hu-HU')}</td>
                     <td class="p-3 font-medium">${item.drug_name}</td>
@@ -211,6 +225,79 @@
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        // Felugró ablak megnyitása a tételhez tartozó kiadások lekérdezésével
+        async function openItemHistoryModal(item) {
+            document.getElementById('modal-title').innerText = `Szállítmány előzményei: ${item.drug_name} (Sz.lev: ${item.delivery_note_number})`;
+            document.getElementById('modal-content').innerHTML = '<div class="p-4 text-center text-slate-400">Kiadások lekérdezése...</div>';
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+
+            // Lekérdezzük azokat a rendeléseket, amelyek ehhez a szállítólevél számhoz tartoznak
+            const { data: orders, error } = await _supabase
+                .from('orders')
+                .select('*')
+                .eq('delivery_note_number', item.delivery_note_number)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                document.getElementById('modal-content').innerHTML = `<div class="p-4 text-center text-red-500">Hiba: ${error.message}</div>`;
+                return;
+            }
+
+            if (!orders || orders.length === 0) {
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="p-6 text-center text-slate-500 bg-slate-50 rounded-xl">
+                        Ehhez a szállítmányhoz (${item.delivery_note_number}) még nem történt kiadás egyetlen osztálynak sem.
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="text-xs text-slate-500 mb-3">
+                    Gyártási szám: <strong class="font-mono text-slate-800">${item.batch_number || '-'}</strong> | Lejárat: <strong>${item.expiry_date}</strong> | Kezdeti készlet: <strong>${item.initial_quantity} doboz</strong>
+                </div>
+                <div class="border rounded-xl overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 text-slate-600 uppercase">
+                            <tr>
+                                <th class="p-2.5">Kiadás ideje</th>
+                                <th class="p-2.5">Osztály</th>
+                                <th class="p-2.5">Beteg neve (TAJ)</th>
+                                <th class="p-2.5 text-right">Mennyiség</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+            `;
+
+            let totalDispensed = 0;
+            orders.forEach(ord => {
+                totalDispensed += ord.quantity;
+                html += `
+                    <tr>
+                        <td class="p-2.5 text-slate-500">${new Date(ord.created_at).toLocaleString('hu-HU')}</td>
+                        <td class="p-2.5 font-medium text-slate-700">${ord.ward_name}</td>
+                        <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || '-'})</span></td>
+                        <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-right text-xs font-bold text-slate-700 mt-3">
+                    Összesen kiadva ebből a szállítmányból: <span class="text-indigo-900">${totalDispensed} doboz</span>
+                </div>
+            `;
+
+            document.getElementById('modal-content').innerHTML = html;
+        }
+
+        function closeModal() {
+            document.getElementById('modal-backdrop').classList.add('hidden');
         }
     </script>
 </body>
