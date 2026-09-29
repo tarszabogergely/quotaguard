@@ -327,17 +327,18 @@
                     <tr id="row-${ord.id}">
                         <td class="p-2.5 font-medium">${ord.drug_name}</td>
                         <td class="p-2.5 space-y-1">
-                            <input type="text" id="pname-${ord.id}" value="${ord.patient_name.replace(' (Módosítva)', '')}" class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none" placeholder="Beteg neve">
-                            <input type="text" id="pid-${ord.id}" value="${ord.patient_identifier || ''}" placeholder="TAJ szám" class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                            <input type="text" id="pname-${ord.id}" value="${ord.patient_name.replace(' (Módosítva)', '')}" disabled class="w-full px-2 py-1 border border-slate-200 bg-slate-50 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:text-slate-700" placeholder="Beteg neve">
+                            <input type="text" id="pid-${ord.id}" value="${ord.patient_identifier || ''}" disabled placeholder="TAJ szám" class="w-full px-2 py-1 border border-slate-200 bg-slate-50 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:text-slate-700">
                             ${modifiedBadge}
                         </td>
                         <td class="p-2.5">${deliveryInfo}</td>
                         <td class="p-2.5">${itemStatusBadge}</td>
                         <td class="p-2.5 text-right">
-                            <input type="number" id="pqty-${ord.id}" value="${ord.quantity}" min="1" class="w-16 px-2 py-1 border border-slate-300 rounded text-xs text-right font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none"> doboz
+                            <input type="number" id="pqty-${ord.id}" value="${ord.quantity}" min="1" disabled class="w-16 px-2 py-1 border border-slate-200 bg-slate-50 rounded text-xs text-right font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:text-slate-700"> doboz
                         </td>
                         <td class="p-2.5 text-right space-x-1">
-                            <button onclick="saveOrderItem('${ord.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Mentés</button>
+                            <button id="btn-edit-${ord.id}" onclick="enableEditItem('${ord.id}')" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Módosítás</button>
+                            <button id="btn-save-${ord.id}" onclick="saveOrderItem('${ord.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition hidden">Mentés</button>
                             <button onclick="deleteOrderItem('${ord.id}')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Törlés</button>
                         </td>
                     </tr>
@@ -378,6 +379,34 @@
         function closeModal() {
             document.getElementById('modal-backdrop').classList.add('hidden');
             activeBatchIdModal = null;
+        }
+
+        // Mezők engedélyezése szerkesztéshez a soron belül
+        function enableEditItem(orderId) {
+            const nameInput = document.getElementById(`pname-${orderId}`);
+            const idInput = document.getElementById(`pid-${orderId}`);
+            const qtyInput = document.getElementById(`pqty-${orderId}`);
+            const editBtn = document.getElementById(`btn-edit-${orderId}`);
+            const saveBtn = document.getElementById(`btn-save-${orderId}`);
+
+            // Kivesszük a letiltást és fehér hátteret adunk neki
+            nameInput.disabled = false;
+            nameInput.classList.remove('bg-slate-50', 'border-slate-200');
+            nameInput.classList.add('bg-white', 'border-slate-300');
+
+            idInput.disabled = false;
+            idInput.classList.remove('bg-slate-50', 'border-slate-200');
+            idInput.classList.add('bg-white', 'border-slate-300');
+
+            qtyInput.disabled = false;
+            qtyInput.classList.remove('bg-slate-50', 'border-slate-200');
+            qtyInput.classList.add('bg-white', 'border-slate-300');
+
+            // Gombok cscseréje
+            editBtn.classList.add('hidden');
+            saveBtn.classList.remove('hidden');
+
+            nameInput.focus();
         }
 
         // Egyedi tétel szerkesztése és mentése (készletkorrekcióval, ha már ki volt adva)
