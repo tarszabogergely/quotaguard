@@ -94,7 +94,7 @@
         <!-- Aktív Csomagok Listája -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📥</span> Osztályoktól érkezett rendelési csomagok (Függőben / Összeállítás alatt)
+                <span class="mr-2">📥</span> Beérkezett rendelések
             </h2>
             <div id="active-packages-container" class="space-y-4">
                 <div class="p-6 text-center text-slate-400">Csomagok betöltése...</div>
@@ -104,7 +104,7 @@
         <!-- Korábbi teljesített csomagok -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📚</span> Teljesített csomagok archívuma (Kiadva az osztálynak)
+                <span class="mr-2">📚</span> Kiadott gyógyszerek
             </h2>
             <div id="completed-packages-container" class="space-y-4">
                 <div class="p-6 text-center text-slate-400">Archívum betöltése...</div>
@@ -254,7 +254,7 @@
                                 ${statusBadge}
                             </div>
                             <div class="text-sm font-medium text-slate-700">Osztály: <strong>${batch.ward}</strong> | Feladó: <strong>${batch.orderedBy}</strong> | Betegek: ${patientsCount} fő</div>
-                            <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Összeállította: <span class="font-medium text-indigo-700">${batch.assembledBy}</span></div>
+                            <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Kért átvétel: <strong class="text-slate-700">${batch.pickupDate ? new Date(batch.pickupDate).toLocaleString('hu-HU') : '-'}</strong> | Összeállította: <strong class="text-indigo-700">${batch.assembledBy}</strong></div>
                         </div>
                         <div class="flex items-center space-x-4 self-end md:self-center">
                             ${reportIndicatorHtml}
