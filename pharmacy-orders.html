@@ -7,33 +7,41 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Nyomtatási stílus a 8x4 cm-es címkékhez */
+        /* Speciális 8x4 cm-es címke nyomtatási stílus */
         @media print {
+            @page {
+                size: 8cm 4cm;
+                margin: 0;
+            }
+            body, html {
+                width: 8cm;
+                height: 4cm;
+                margin: 0;
+                padding: 0;
+                background: white !important;
+            }
             body * { visibility: hidden; }
             #print-labels-container, #print-labels-container * { visibility: visible; }
             #print-labels-container {
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 100%;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 5mm;
-                padding: 2mm;
+                width: 8cm;
+                display: block;
             }
             .drug-label {
                 width: 8cm;
                 height: 4cm;
-                border: 1px dashed #666;
-                padding: 3mm;
+                page-break-after: always;
+                page-break-inside: avoid;
                 box-sizing: border-box;
+                padding: 3mm;
                 font-family: sans-serif;
                 font-size: 9pt;
                 line-height: 1.15;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                page-break-inside: avoid;
                 background: white;
             }
         }
@@ -458,7 +466,7 @@
 
         function printA4Summary() { window.print(); }
 
-        // Dobozcímkék nyomtatása (8x4 cm, minden betegre sorban, dobozonként)
+        // Dobozcímkék nyomtatása (Pontos 8x4 cm-es címkeformátum, oldaltöréssel)
         function printBoxLabels() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
@@ -476,7 +484,7 @@
                     
                     labelDiv.innerHTML = `
                         <div style="border-bottom: 1px solid #000; padding-bottom: 1mm; display: flex; justify-content: space-between; font-weight: bold; font-size: 8pt;">
-                            <span>🛡️ QuotaGuard | ${ord.order_batch_id || 'Csomag'}</span>
+                            <span>🛡️ QGuard | ${ord.order_batch_id || 'Csomag'}</span>
                             <span>Doboz: ${i}/${boxCount}</span>
                         </div>
                         <div style="font-size: 10pt; font-weight: bold; margin-top: 0.5mm;">
@@ -500,7 +508,7 @@
                 }
             });
 
-            // Nyomtatási ablak indítása
+            // Nyomtatás indítása
             window.print();
         }
     </script>
