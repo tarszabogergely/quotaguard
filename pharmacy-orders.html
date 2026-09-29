@@ -525,15 +525,13 @@
             document.body.classList.remove('print-labels');
         }
 
-        // A4-es Összesítő nyomtatása aláírási blokkokkal
+        // A4-es Összesítő nyomtatása új, tiszta ablakban (100% biztos működés)
         function printA4Summary() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
             if (batchOrders.length === 0) return;
 
             const first = batchOrders[0];
-            const container = document.getElementById('print-summary-container');
-            
             let totalBoxes = batchOrders.reduce((sum, item) => sum + item.quantity, 0);
             let patientsCount = new Set(batchOrders.map(i => i.patient_name)).size;
 
@@ -551,67 +549,85 @@
                 `;
             });
 
-            container.innerHTML = `
-                <div style="max-width: 190mm; margin: 0 auto;">
-                    <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #1e1b4b; padding-bottom: 10px; margin-bottom: 20px;">
-                        <div>
-                            <h2 style="margin: 0; font-size: 18pt; color: #1e1b4b;">🛡️ QuotaGuard Kórházi Gyógyszerészet</h2>
-                            <p style="margin: 3px 0 0 0; font-size: 10pt; color: #475569;">Markusovszky Egyetemi Oktatókórház Közforgalmú Gyógyszertára</p>
+            // Új ablak nyitása a nyomtatáshoz
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="hu">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Osztályi Csomag Összesítő - ${first.order_batch_id}</title>
+                    <style>
+                        body { font-family: sans-serif; color: #000; margin: 0; padding: 15mm; background: white; }
+                        @page { size: A4; margin: 0; }
+                    </style>
+                </head>
+                <body>
+                    <div style="max-width: 190mm; margin: 0 auto;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #1e1b4b; padding-bottom: 10px; margin-bottom: 20px;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 18pt; color: #1e1b4b;">🛡️ QuotaGuard Kórházi Gyógyszerészet</h2>
+                                <p style="margin: 3px 0 0 0; font-size: 10pt; color: #475569;">Markusovszky Egyetemi Oktatókórház Közforgalmú Gyógyszertára</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <h3 style="margin: 0; font-size: 14pt; color: #334155;">OSZTÁLYI CSOMAG ÖSSZESÍTŐ</h3>
+                                <p style="margin: 3px 0 0 0; font-size: 10pt; font-weight: bold; color: #1e1b4b;">Csomag azonosító: ${first.order_batch_id || 'N/A'}</p>
+                            </div>
                         </div>
-                        <div style="text-align: right;">
-                            <h3 style="margin: 0; font-size: 14pt; color: #334155;">OSZTÁLYI CSOMAG ÖSSZESÍTŐ</h3>
-                            <p style="margin: 3px 0 0 0; font-size: 10pt; font-weight: bold; color: #1e1b4b;">Csomag azonosító: ${first.order_batch_id || 'N/A'}</p>
+
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <div>
+                                <p style="margin: 2px 0;"><strong>Igénylő osztály:</strong> ${first.ward_name}</p>
+                                <p style="margin: 2px 0;"><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
+                                <p style="margin: 2px 0;"><strong>Kért átvételi időpont:</strong> ${first.requested_pickup_date ? new Date(first.requested_pickup_date).toLocaleString('hu-HU') : '-'}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="margin: 2px 0;"><strong>Érintett betegek száma:</strong> ${patientsCount} fő</p>
+                                <p style="margin: 2px 0;"><strong>Összes tételszám:</strong> ${batchOrders.length} db</p>
+                                <p style="margin: 2px 0; font-size: 11pt; color: #1e1b4b;"><strong>Teljes mennyiség:</strong> ${totalBoxes} doboz</p>
+                            </div>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 30px;">
+                            <thead>
+                                <tr style="background: #1e1b4b; color: white;">
+                                    <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 30px;">#</th>
+                                    <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Gyógyszer neve</th>
+                                    <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Beteg neve & TAJ</th>
+                                    <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Indikáció</th>
+                                    <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Szállítólevél / Gyártási szám</th>
+                                    <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 70px;">Mennyiség</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+
+                        <!-- Aláírási blokk -->
+                        <div style="display: flex; justify-content: space-between; margin-top: 50px; font-size: 10pt; page-break-inside: avoid;">
+                            <div style="text-align: center; width: 45%;">
+                                <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
+                                <strong>Kiadta (Központi Gyógyszertár):</strong><br>
+                                <span style="font-size: 9pt; color: #475569;">Név / Pecsét / Aláírás</span>
+                            </div>
+                            <div style="text-align: center; width: 45%;">
+                                <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
+                                <strong>Átvette (${first.ward_name}):</strong><br>
+                                <span style="font-size: 9pt; color: #475569;">Név / Pecsét / Aláírás</span>
+                            </div>
                         </div>
                     </div>
-
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                        <div>
-                            <p style="margin: 2px 0;"><strong>Igénylő osztály:</strong> ${first.ward_name}</p>
-                            <p style="margin: 2px 0;"><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
-                            <p style="margin: 2px 0;"><strong>Kért átvételi időpont:</strong> ${first.requested_pickup_date ? new Date(first.requested_pickup_date).toLocaleString('hu-HU') : '-'}</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <p style="margin: 2px 0;"><strong>Érintett betegek száma:</strong> ${patientsCount} fő</p>
-                            <p style="margin: 2px 0;"><strong>Összes tételszám:</strong> ${batchOrders.length} db</p>
-                            <p style="margin: 2px 0; font-size: 11pt; color: #1e1b4b;"><strong>Teljes mennyiség:</strong> ${totalBoxes} doboz</p>
-                        </div>
-                    </div>
-
-                    <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 30px;">
-                        <thead>
-                            <tr style="background: #1e1b4b; color: white;">
-                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 30px;">#</th>
-                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Gyógyszer neve</th>
-                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Beteg neve & TAJ</th>
-                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Indikáció</th>
-                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Szállítólevél / Gyártási szám</th>
-                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 70px;">Mennyiség</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml}
-                        </tbody>
-                    </table>
-
-                    <!-- Aláírási blokk -->
-                    <div style="display: flex; justify-content: space-between; margin-top: 50px; font-size: 10pt; page-break-inside: avoid;">
-                        <div style="text-align: center; width: 45%;">
-                            <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
-                            <strong>Kiadta (Központi Gyógyszertár):</strong><br>
-                            <span style="font-size: 9pt; color: #475569;">Név / Pecsét / Aláírás</span>
-                        </div>
-                        <div style="text-align: center; width: 45%;">
-                            <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
-                            <strong>Átvette (${first.ward_name}):</strong><br>
-                            <span style="font-size: 9pt; color: #475569;">Név / Pecsét / Aláírás</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.body.classList.add('print-a4');
-            window.print();
-            document.body.classList.remove('print-a4');
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            window.close();
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         }
     </script>
 </body>
