@@ -44,21 +44,6 @@
                 justify-content: space-between;
                 background: white;
             }
-
-            /* A4-es Összesítő nyomtatási stílus */
-            body.print-a4 * { visibility: hidden; }
-            body.print-a4 #print-summary-container, body.print-a4 #print-summary-container * { visibility: visible; }
-            body.print-a4 #print-summary-container {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                padding: 15mm;
-                box-sizing: border-box;
-                font-family: sans-serif;
-                color: #000;
-                background: white !important;
-            }
         }
     </style>
 </head>
@@ -112,9 +97,8 @@
 
     </main>
 
-    <!-- Rejtett konténerek nyomtatáshoz -->
+    <!-- Rejtett konténer a címkéknek nyomtatáshoz -->
     <div id="print-labels-container" class="hidden"></div>
-    <div id="print-summary-container" class="hidden"></div>
 
     <!-- Részletek / Nyomtatás Modális Ablak -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
@@ -525,7 +509,7 @@
             document.body.classList.remove('print-labels');
         }
 
-        // A4-es Összesítő nyomtatása új, tiszta ablakban (100% biztos működés)
+        // A4-es Összesítő nyomtatása új, tiszta ablakban
         function printA4Summary() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
@@ -549,7 +533,6 @@
                 `;
             });
 
-            // Új ablak nyitása a nyomtatáshoz
             const printWindow = window.open('', '_blank', 'width=900,height=700');
             printWindow.document.write(`
                 <!DOCTYPE html>
@@ -575,7 +558,7 @@
                             </div>
                         </div>
 
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15mm; font-size: 10pt; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
                             <div>
                                 <p style="margin: 2px 0;"><strong>Igénylő osztály:</strong> ${first.ward_name}</p>
                                 <p style="margin: 2px 0;"><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
@@ -588,7 +571,7 @@
                             </div>
                         </div>
 
-                        <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 30px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 30mm;">
                             <thead>
                                 <tr style="background: #1e1b4b; color: white;">
                                     <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 30px;">#</th>
@@ -605,7 +588,7 @@
                         </table>
 
                         <!-- Aláírási blokk -->
-                        <div style="display: flex; justify-content: space-between; margin-top: 50px; font-size: 10pt; page-break-inside: avoid;">
+                        <div style="display: flex; justify-content: space-between; margin-top: 40mm; font-size: 10pt; page-break-inside: avoid;">
                             <div style="text-align: center; width: 45%;">
                                 <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
                                 <strong>Kiadta (Központi Gyógyszertár):</strong><br>
