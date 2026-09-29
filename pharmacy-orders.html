@@ -188,6 +188,8 @@
                         createdAt: order.created_at,
                         pickupDate: order.requested_pickup_date,
                         status: order.status,
+                        orderedBy: order.ordered_by || 'Ismeretlen feladó',
+                        assembledBy: order.assembled_by || 'Még nincs összeállítva',
                         items: []
                     };
                 }
@@ -205,7 +207,6 @@
             let completedCount = 0;
 
             Object.values(batches).forEach(batch => {
-                // Csak az aktív (nem törölt / quantity > 0) tételekkel számolunk összeget
                 let validItems = batch.items.filter(i => i.quantity > 0 && !i.patient_name.includes('[TÖRÖLVE]'));
                 let totalBoxes = validItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
                 let patientsCount = new Set(validItems.map(i => i.patient_name)).size;
@@ -252,8 +253,8 @@
                                 <span class="font-mono font-bold text-indigo-900">${batch.batchId}</span>
                                 ${statusBadge}
                             </div>
-                            <div class="text-sm font-medium text-slate-700">Osztály: <strong>${batch.ward}</strong> | Betegek száma: ${patientsCount} fő</div>
-                            <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Kért átvétel: ${batch.pickupDate ? new Date(batch.pickupDate).toLocaleString('hu-HU') : '-'}</div>
+                            <div class="text-sm font-medium text-slate-700">Osztály: <strong>${batch.ward}</strong> | Feladó: <strong>${batch.orderedBy}</strong> | Betegek: ${patientsCount} fő</div>
+                            <div class="text-xs text-slate-500">Leadva: ${new Date(batch.createdAt).toLocaleString('hu-HU')} | Összeállította: <span class="font-medium text-indigo-700">${batch.assembledBy}</span></div>
                         </div>
                         <div class="flex items-center space-x-4 self-end md:self-center">
                             ${reportIndicatorHtml}
@@ -266,7 +267,6 @@
                     </div>
                 `;
 
-                // Csak akkor teljesített, ha minden nem törölt tétel ki van adva
                 const isFullyDispensed = batch.items.length > 0 && batch.items.filter(i => i.quantity > 0 && !i.patient_name.includes('[TÖRÖLVE]')).every(i => i.status === 'dispensed' || i.status === 'reported');
 
                 if (isFullyDispensed) {
@@ -291,8 +291,15 @@
             document.getElementById('modal-title').innerText = `Rendelési csomag: ${batchId} (${first.ward_name})`;
 
             let contentHtml = `
-                <div class="text-xs text-slate-500 mb-3">
-                    Leadva: ${new Date(first.created_at).toLocaleString('hu-HU')} | Átvétel: ${first.requested_pickup_date ? new Date(first.requested_pickup_date).toLocaleString('hu-HU') : '-'}
+                <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex flex-col md:flex-row justify-between gap-2 text-xs text-indigo-950 mb-3">
+                    <div>
+                        <p><strong>Igénylő osztály:</strong> ${first.ward_name}</p>
+                        <p><strong>Rendelést feladta:</strong> <span class="text-indigo-900 font-semibold">${first.ordered_by || 'Ismeretlen'}</span></p>
+                    </div>
+                    <div>
+                        <p><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
+                        <p><strong>Összeállította (Patika):</strong> <span class="text-indigo-900 font-semibold">${first.assembled_by || 'Még nincs összeállítva'}</span></p>
+                    </div>
                 </div>
                 <div class="border rounded-xl overflow-hidden">
                     <table class="w-full text-left border-collapse text-xs">
@@ -331,11 +338,8 @@
                     ? '<span class="text-[10px] text-amber-600 font-bold block">(Módosítva)</span>' 
                     : '';
 
-                // Ha törölve van, áthúzott stílust adunk
                 let rowStyleClass = isCancelled ? 'bg-red-50/50 opacity-75' : '';
                 let textStyleClass = isCancelled ? 'line-through text-slate-400' : 'text-slate-800';
-
-                // Tiszta név a megjelenítéshez (kiszedve a [TÖRÖLVE] és a (Módosítva) az inputból)
                 let cleanPatientName = ord.patient_name ? ord.patient_name.replace(' (Módosítva)', '').replace('[TÖRÖLVE] ', '') : '';
 
                 contentHtml += `
@@ -407,7 +411,6 @@
             activeBatchIdModal = null;
         }
 
-        // Szerkesztés engedélyezése: elrejtjük a sima szöveget és megjelenítjük az input mezőket kerettel
         function enableEditItem(orderId) {
             const textDisplay = document.getElementById(`text-display-${orderId}`);
             const qtyDisplay = document.getElementById(`qty-display-${orderId}`);
@@ -417,11 +420,9 @@
             const editBtn = document.getElementById(`btn-edit-${orderId}`);
             const saveBtn = document.getElementById(`btn-save-${orderId}`);
 
-            // Elrejtjük a statikus szöveges nézetet
             textDisplay.classList.add('hidden');
             qtyDisplay.classList.add('hidden');
 
-            // Megjelenítjük és aktívvá tesszük az input mezőket kerettel és fehér háttérrel
             nameInput.classList.remove('hidden', 'border-transparent', 'bg-transparent');
             nameInput.classList.add('border-slate-300', 'bg-white');
             nameInput.disabled = false;
@@ -434,14 +435,12 @@
             qtyInput.classList.add('border-slate-300', 'bg-white');
             qtyInput.disabled = false;
 
-            // Gombok cseréje
             editBtn.classList.add('hidden');
             saveBtn.classList.remove('hidden');
 
             nameInput.focus();
         }
 
-        // Egyedi tétel szerkesztése és mentése
         async function saveOrderItem(orderId) {
             const ord = allOrdersData.find(o => o.id === orderId);
             if (!ord) return;
@@ -511,14 +510,12 @@
             }
         }
 
-        // Törlés: mennyiséget 0-ra állítjuk, nevébe [TÖRÖLVE]-t teszünk, és visszapakoljuk a készletet
         async function deleteOrderItem(orderId) {
             if (!confirm('Biztosan törölni szeretnéd ezt a tételt? A sor áthúzva megmarad az archívumban, és a készlet visszakerül a raktárba.')) return;
 
             const ord = allOrdersData.find(o => o.id === orderId);
             if (!ord) return;
 
-            // Ha már ki volt adva, visszatöltjük a mennyiséget a raktárba
             if (ord.delivery_note_number && ord.quantity > 0) {
                 const { data: invList } = await _supabase
                     .from('inventory_receipts')
@@ -535,7 +532,6 @@
                 }
             }
 
-            // A patient_name-ből kiszedjük az esetleges korábbi előtagokat, és elé tesszük a [TÖRÖLVE]-t
             const cleanName = ord.patient_name ? ord.patient_name.replace(' (Módosítva)', '').replace('[TÖRÖLVE] ', '') : 'Törölt tétel';
             const finalDeletedName = `[TÖRÖLVE] ${cleanName}`;
 
@@ -556,6 +552,7 @@
             }
         }
 
+        // Összeállítás: mostantól rögzíti a bejelentkezett patikus nevét is (assembled_by)
         async function assembleBatch(batchId) {
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
 
@@ -603,17 +600,19 @@
                     }
                 }
 
+                // Frissítjük a státuszt, a szállítólevelet, a gyári számot ÉS az összeállító nevét is
                 await _supabase
                     .from('orders')
                     .update({ 
                         status: 'assembled',
                         delivery_note_number: assignedDelivery,
-                        batch_number: assignedBatch
+                        batch_number: assignedBatch,
+                        assembled_by: currentUser
                     })
                     .eq('id', ord.id);
             }
 
-            alert('Csomag sikeresen összeállítva! Szállítólevelek hozzárendelve. ✓');
+            alert('Csomag sikeresen összeállítva! Szállítólevelek és név rögzítve. ✓');
             closeModal();
             loadPharmacyPackages();
         }
@@ -672,7 +671,6 @@
             }
         }
 
-        // Dobozcímkék nyomtatása (8x4 cm) - a törölt tételeket kihagyjuk
         function printBoxLabels() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal && o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
@@ -717,7 +715,7 @@
             document.body.classList.remove('print-labels');
         }
 
-        // A4-es Összesítő nyomtatása - a törölt tételeket is feltüntetjük áthúzva / 0 dobozzal
+        // A4-es Összesítő nyomtatása - a feladó és az összeállító az adatok között szerepel
         function printA4Summary() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
@@ -761,15 +759,15 @@
                         </div>
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
                         <div>
                             <p style="margin: 2px 0;"><strong>Igénylő osztály:</strong> ${first.ward_name}</p>
+                            <p style="margin: 2px 0;"><strong>Rendelést feladta:</strong> ${first.ordered_by || 'Ismeretlen'}</p>
                             <p style="margin: 2px 0;"><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
-                            <p style="margin: 2px 0;"><strong>Kért átvételi időpont:</strong> ${first.requested_pickup_date ? new Date(first.requested_pickup_date).toLocaleString('hu-HU') : '-'}</p>
                         </div>
                         <div style="text-align: right;">
+                            <p style="margin: 2px 0;"><strong>Összeállította (Patika):</strong> ${first.assembled_by || 'Még nincs összeállítva'}</p>
                             <p style="margin: 2px 0;"><strong>Érintett betegek száma:</strong> ${patientsCount} fő</p>
-                            <p style="margin: 2px 0;"><strong>Összes tételszám:</strong> ${validItems.length} db aktív</p>
                             <p style="margin: 2px 0; font-size: 11pt; color: #1e1b4b;"><strong>Teljes mennyiség:</strong> ${totalBoxes} doboz</p>
                         </div>
                     </div>
