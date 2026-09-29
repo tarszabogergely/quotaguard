@@ -131,7 +131,7 @@
 
             <div class="border-t pt-4 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center space-x-2">
-                    <button onclick="printA4Summary()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-medium shadow transition">🖨️ A4 Összesítő nyomtatása</button>
+                    <button onclick="printA4Summary()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-medium shadow transition">🖨️ Összesítő nyomtatása</button>
                     <button onclick="printBoxLabels()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-medium shadow transition">🏷️ Dobozcímkék nyomtatása</button>
                 </div>
                 <div id="modal-action-buttons" class="flex items-center space-x-2">
@@ -298,7 +298,7 @@
                     </div>
                     <div>
                         <p><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
-                        <p><strong>Összeállította (Patika):</strong> <span class="text-indigo-900 font-semibold">${first.assembled_by || 'Még nincs összeállítva'}</span></p>
+                        <p><strong>Összeállította:</strong> <span class="text-indigo-900 font-semibold">${first.assembled_by || 'Még nincs összeállítva'}</span></p>
                     </div>
                 </div>
                 <div class="border rounded-xl overflow-hidden">
@@ -396,7 +396,7 @@
             } else if (first.status === 'assembled') {
                 actionContainer.innerHTML = `
                     <button onclick="dispenseBatch('${batchId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
-                        Kiadás az Osztálynak (FIFO Készletcsökkenés) 🛡️
+                        Kiadás
                     </button>
                 `;
             } else {
@@ -766,7 +766,7 @@
                             <p style="margin: 2px 0;"><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
                         </div>
                         <div style="text-align: right;">
-                            <p style="margin: 2px 0;"><strong>Összeállította (Patika):</strong> ${first.assembled_by || 'Még nincs összeállítva'}</p>
+                            <p style="margin: 2px 0;"><strong>Összeállította:</strong> ${first.assembled_by || 'Még nincs összeállítva'}</p>
                             <p style="margin: 2px 0;"><strong>Érintett betegek száma:</strong> ${patientsCount} fő</p>
                             <p style="margin: 2px 0; font-size: 11pt; color: #1e1b4b;"><strong>Teljes mennyiség:</strong> ${totalBoxes} doboz</p>
                         </div>
