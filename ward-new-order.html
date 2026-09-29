@@ -50,7 +50,7 @@
             <div>
                 <button onclick="addDrugBlock()" class="w-full py-3.5 border-2 border-dashed border-indigo-300 hover:border-indigo-500 text-indigo-700 hover:bg-indigo-50 rounded-2xl text-sm font-semibold transition flex items-center justify-center space-x-2 shadow-sm">
                     <span class="text-lg">＋</span>
-                    <span>Új gyógyszer hozzáadása a csomaghoz</span>
+                    <span>Gyógyszer hozzáadása</span>
                 </button>
             </div>
 
@@ -60,8 +60,7 @@
                     Összesen: <strong id="total-boxes-preview" class="text-indigo-900">0</strong> doboz a csomagban
                 </div>
                 <button onclick="submitOrderPackage()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3.5 rounded-xl text-base font-semibold shadow-lg transition flex items-center space-x-2">
-                    <span>Csomag elküldése a Patikának</span>
-                    <span>🛡️</span>
+                    <span>Megrendelés</span>
                 </button>
             </div>
         </div>
@@ -128,31 +127,31 @@
 
             blockDiv.innerHTML = `
                 ${deleteBtnHtml}
-                <div class="font-bold text-xs uppercase text-indigo-900 tracking-wider">Gyógyszer tétel #${blockIndex + 1}</div>
+                <div class="font-bold text-xs uppercase text-indigo-900 tracking-wider">Gyógyszer #${blockIndex + 1}</div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div class="md:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve *</label>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve</label>
                         <select class="drug-select w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none" onchange="onDrugChange(this)">
                             ${optionsHtml}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Összesen (doboz) *</label>
-                        <input type="number" class="drug-qty w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 font-bold text-indigo-900" value="1" readonly placeholder="aut. összeg">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Összesen</label>
+                        <input type="text" class="drug-qty w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 font-bold text-indigo-900" value="1" readonly placeholder="aut. összeg">
                     </div>
                     <div class="md:col-span-3">
                         <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatáserősség, Kiszerelés & Indikáció</label>
-                        <input type="text" class="drug-details w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-500" readonly placeholder="automata kitöltés">
+                        <input type="text" class="drug-details w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-500" readonly>
                     </div>
                 </div>
 
                 <!-- Beteg adatok -->
                 <div class="border-t pt-3 space-y-2">
-                    <div class="text-xs font-semibold text-slate-700 uppercase">Kedvezményezett betegek (személyenkénti bontás)</div>
+                    <div class="text-xs font-semibold text-slate-700 uppercase">Betegek</div>
                     <div class="patients-container space-y-2">
                         <div class="patient-row flex items-center gap-2">
-                            <input type="text" class="patient-name flex-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Beteg neve *">
+                            <input type="text" class="patient-name flex-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Név">
                             <input type="text" class="patient-id flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="TAJ szám">
                             <input type="number" class="patient-qty w-24 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="1" min="1" placeholder="Doboz" oninput="updateBlockAndTotalQty(this)">
                             <button type="button" onclick="removePatientRow(this)" class="px-2 py-2 text-slate-400 hover:text-red-500 text-sm" style="visibility: hidden;">✕</button>
