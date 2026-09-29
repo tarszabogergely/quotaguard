@@ -221,7 +221,7 @@
                 if (hasDispensed || allReported && batch.status === 'dispensed') {
                     statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Kiadva</span>';
                 } else if (hasAssembled) {
-                    statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítva</span>';
+                    statusBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs font-semibold">Összeállítás alatt</span>';
                 } else {
                     statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
                 }
@@ -330,7 +330,7 @@
                 let itemStatusBadge = '';
                 if (isCancelled) itemStatusBadge = '<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-[10px] font-semibold">Törölve (0 doboz)</span>';
                 else if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
-                else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítva</span>';
+                else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítás alatt</span>';
                 else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
                 else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
 
