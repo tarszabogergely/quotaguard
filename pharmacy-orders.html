@@ -6,6 +6,38 @@
     <title>QuotaGuard - Patika: Csomagalapú Rendelések</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Nyomtatási stílus a 8x4 cm-es címkékhez */
+        @media print {
+            body * { visibility: hidden; }
+            #print-labels-container, #print-labels-container * { visibility: visible; }
+            #print-labels-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5mm;
+                padding: 2mm;
+            }
+            .drug-label {
+                width: 8cm;
+                height: 4cm;
+                border: 1px dashed #666;
+                padding: 3mm;
+                box-sizing: border-box;
+                font-family: sans-serif;
+                font-size: 9pt;
+                line-height: 1.15;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                page-break-inside: avoid;
+                background: white;
+            }
+        }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
@@ -56,6 +88,9 @@
         </div>
 
     </main>
+
+    <!-- Rejtett konténer a címkéknek nyomtatáshoz -->
+    <div id="print-labels-container" class="hidden"></div>
 
     <!-- Részletek / Nyomtatás Modális Ablak -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
@@ -151,7 +186,6 @@
                 let pendingReportCount = batch.items.filter(i => i.status !== 'reported').length;
                 let allReported = pendingReportCount === 0;
 
-                // Csomag szintű státusz vizsgálat az elemek alapján
                 let hasDispensed = batch.items.some(i => i.status === 'dispensed' || i.status === 'reported');
                 let hasAssembled = batch.items.some(i => i.status === 'assembled');
 
@@ -164,7 +198,6 @@
                     statusBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold">Függőben</span>';
                 }
 
-                // Vizuális jelentés indikátor (piros X vagy zöld pipa)
                 let reportIndicatorHtml = '';
                 if (allReported) {
                     reportIndicatorHtml = `
@@ -206,7 +239,6 @@
                     </div>
                 `;
 
-                // ITT A LÉNYEG: Ha a csomag ki lett adva (dispensed vagy reported), akkor alulra kerül az archívumba, függetlenül attól, hogy van-e még nem jelentett tétel!
                 const isFullyDispensed = batch.items.every(i => i.status === 'dispensed' || i.status === 'reported');
 
                 if (isFullyDispensed) {
@@ -425,7 +457,52 @@
         }
 
         function printA4Summary() { window.print(); }
-        function printBoxLabels() { window.print(); }
+
+        // Dobozcímkék nyomtatása (8x4 cm, minden betegre sorban, dobozonként)
+        function printBoxLabels() {
+            if (!activeBatchIdModal) return;
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
+            if (batchOrders.length === 0) return;
+
+            const container = document.getElementById('print-labels-container');
+            container.innerHTML = ''; // Előző törlése
+
+            batchOrders.forEach(ord => {
+                const boxCount = ord.quantity || 1;
+                
+                for (let i = 1; i <= boxCount; i++) {
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'drug-label';
+                    
+                    labelDiv.innerHTML = `
+                        <div style="border-bottom: 1px solid #000; padding-bottom: 1mm; display: flex; justify-content: space-between; font-weight: bold; font-size: 8pt;">
+                            <span>🛡️ QuotaGuard | ${ord.order_batch_id || 'Csomag'}</span>
+                            <span>Doboz: ${i}/${boxCount}</span>
+                        </div>
+                        <div style="font-size: 10pt; font-weight: bold; margin-top: 0.5mm;">
+                            ${ord.patient_name} <span style="font-size: 8pt; font-weight: normal;">(TAJ: ${ord.patient_identifier || 'Nincs'})</span>
+                        </div>
+                        <div style="font-size: 9pt; font-weight: bold; color: #1e1b4b;">
+                            💊 ${ord.drug_name}
+                        </div>
+                        <div style="font-size: 7.5pt; color: #475569;">
+                            Indikáció: ${ord.indication || 'Nincs megadva'}
+                        </div>
+                        <div style="font-size: 7.5pt; border-top: 1px solid #ccc; padding-top: 1mm; display: flex; justify-content: space-between;">
+                            <span>Sz.lev: <strong>${ord.delivery_note_number || 'Folyamatban'}</strong></span>
+                            <span>Gy.sz: <strong>${ord.batch_number || '-'}</strong></span>
+                        </div>
+                        <div style="font-size: 6.5pt; text-align: right; color: #64748b;">
+                            Dátum: ${new Date(ord.created_at).toLocaleDateString('hu-HU')}
+                        </div>
+                    `;
+                    container.appendChild(labelDiv);
+                }
+            });
+
+            // Nyomtatási ablak indítása
+            window.print();
+        }
     </script>
 </body>
 </html>
