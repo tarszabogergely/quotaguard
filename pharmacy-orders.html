@@ -205,8 +205,8 @@
             let completedCount = 0;
 
             Object.values(batches).forEach(batch => {
-                // Csak az aktív (nem törölt / nem cancelled) tételekkel számolunk összeget
-                let validItems = batch.items.filter(i => i.status !== 'cancelled');
+                // Csak az aktív (nem törölt / quantity > 0) tételekkel számolunk összeget
+                let validItems = batch.items.filter(i => i.quantity > 0 && !i.patient_name.includes('[TÖRÖLVE]'));
                 let totalBoxes = validItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
                 let patientsCount = new Set(validItems.map(i => i.patient_name)).size;
 
@@ -267,7 +267,7 @@
                 `;
 
                 // Csak akkor teljesített, ha minden nem törölt tétel ki van adva
-                const isFullyDispensed = batch.items.length > 0 && batch.items.filter(i => i.status !== 'cancelled').every(i => i.status === 'dispensed' || i.status === 'reported');
+                const isFullyDispensed = batch.items.length > 0 && batch.items.filter(i => i.quantity > 0 && !i.patient_name.includes('[TÖRÖLVE]')).every(i => i.status === 'dispensed' || i.status === 'reported');
 
                 if (isFullyDispensed) {
                     completedCount++;
@@ -311,7 +311,7 @@
 
             let totalBoxes = 0;
             batchOrders.forEach(ord => {
-                const isCancelled = ord.status === 'cancelled';
+                const isCancelled = ord.quantity === 0 || ord.patient_name.includes('[TÖRÖLVE]');
                 if (!isCancelled) {
                     totalBoxes += ord.quantity;
                 }
@@ -327,7 +327,7 @@
                 else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
                 else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
 
-                let modifiedBadge = ord.patient_name.includes('(Módosítva)') 
+                let modifiedBadge = ord.patient_name.includes('(Módosítva)') && !isCancelled
                     ? '<span class="text-[10px] text-amber-600 font-bold block">(Módosítva)</span>' 
                     : '';
 
@@ -335,15 +335,18 @@
                 let rowStyleClass = isCancelled ? 'bg-red-50/50 opacity-75' : '';
                 let textStyleClass = isCancelled ? 'line-through text-slate-400' : 'text-slate-800';
 
+                // Tiszta név a megjelenítéshez (kiszedve a [TÖRÖLVE] és a (Módosítva) az inputból)
+                let cleanPatientName = ord.patient_name ? ord.patient_name.replace(' (Módosítva)', '').replace('[TÖRÖLVE] ', '') : '';
+
                 contentHtml += `
                     <tr id="row-${ord.id}" class="${rowStyleClass}">
                         <td class="p-2.5 font-medium ${textStyleClass}">${ord.drug_name}</td>
                         <td class="p-2.5 space-y-1">
                             <div id="text-display-${ord.id}" class="${textStyleClass}">
-                                <strong class="block">${ord.patient_name.replace(' (Módosítva)', '')}</strong>
+                                <strong class="block">${cleanPatientName}</strong>
                                 <span class="text-slate-500 text-[11px]">TAJ: ${ord.patient_identifier || 'Nincs megadva'}</span>
                             </div>
-                            <input type="text" id="pname-${ord.id}" value="${ord.patient_name.replace(' (Módosítva)', '')}" disabled class="w-full px-2 py-1 border border-transparent bg-transparent rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-transparent hidden" placeholder="Beteg neve">
+                            <input type="text" id="pname-${ord.id}" value="${cleanPatientName}" disabled class="w-full px-2 py-1 border border-transparent bg-transparent rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-transparent hidden" placeholder="Beteg neve">
                             <input type="text" id="pid-${ord.id}" value="${ord.patient_identifier || ''}" disabled placeholder="TAJ szám" class="w-full px-2 py-1 border border-transparent bg-transparent rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-transparent hidden">
                             ${modifiedBadge}
                         </td>
@@ -376,7 +379,7 @@
             document.getElementById('modal-content').innerHTML = contentHtml;
 
             const actionContainer = document.getElementById('modal-action-buttons');
-            const hasActiveItems = batchOrders.some(o => o.status !== 'cancelled');
+            const hasActiveItems = batchOrders.some(o => o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
 
             if (!hasActiveItems) {
                 actionContainer.innerHTML = `<span class="text-xs font-semibold text-red-700 bg-red-50 px-3 py-1.5 rounded-xl">Minden tétel törölve ebben a csomagban</span>`;
@@ -508,15 +511,15 @@
             }
         }
 
-        // Törlés:nem töröljük ki az adatbázisból, hanem státuszt váltunk 'cancelled'-re, készletet visszapakoljuk, mennyiséget 0-ra állítjuk
+        // Törlés: mennyiséget 0-ra állítjuk, nevébe [TÖRÖLVE]-t teszünk, és visszapakoljuk a készletet
         async function deleteOrderItem(orderId) {
             if (!confirm('Biztosan törölni szeretnéd ezt a tételt? A sor áthúzva megmarad az archívumban, és a készlet visszakerül a raktárba.')) return;
 
             const ord = allOrdersData.find(o => o.id === orderId);
             if (!ord) return;
 
-            // Ha már ki volt adva (vagy össze volt állítva és van szállítólevele), visszatöltjük a raktárba
-            if (ord.delivery_note_number) {
+            // Ha már ki volt adva, visszatöltjük a mennyiséget a raktárba
+            if (ord.delivery_note_number && ord.quantity > 0) {
                 const { data: invList } = await _supabase
                     .from('inventory_receipts')
                     .select('*')
@@ -532,12 +535,15 @@
                 }
             }
 
-            // Státusz frissítése cancelled-re, mennyiség 0-ra
+            // A patient_name-ből kiszedjük az esetleges korábbi előtagokat, és elé tesszük a [TÖRÖLVE]-t
+            const cleanName = ord.patient_name ? ord.patient_name.replace(' (Módosítva)', '').replace('[TÖRÖLVE] ', '') : 'Törölt tétel';
+            const finalDeletedName = `[TÖRÖLVE] ${cleanName}`;
+
             const { error } = await _supabase
                 .from('orders')
                 .update({
-                    status: 'cancelled',
-                    quantity: 0
+                    quantity: 0,
+                    patient_name: finalDeletedName
                 })
                 .eq('id', orderId);
 
@@ -551,7 +557,7 @@
         }
 
         async function assembleBatch(batchId) {
-            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.status !== 'cancelled');
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
 
             const neededDrugs = {};
             batchOrders.forEach(o => {
@@ -613,7 +619,7 @@
         }
 
         async function dispenseBatch(batchId) {
-            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.status !== 'cancelled');
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
 
             const neededDrugs = {};
             batchOrders.forEach(o => {
@@ -669,7 +675,7 @@
         // Dobozcímkék nyomtatása (8x4 cm) - a törölt tételeket kihagyjuk
         function printBoxLabels() {
             if (!activeBatchIdModal) return;
-            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal && o.status !== 'cancelled');
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal && o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
             if (batchOrders.length === 0) return;
 
             const container = document.getElementById('print-labels-container');
@@ -720,13 +726,13 @@
             const first = batchOrders[0];
             const container = document.getElementById('print-summary-container');
             
-            let validItems = batchOrders.filter(o => o.status !== 'cancelled');
+            let validItems = batchOrders.filter(o => o.quantity > 0 && !o.patient_name.includes('[TÖRÖLVE]'));
             let totalBoxes = validItems.reduce((sum, item) => sum + item.quantity, 0);
             let patientsCount = new Set(validItems.map(i => i.patient_name)).size;
 
             let rowsHtml = '';
             batchOrders.forEach((ord, index) => {
-                const isCancelled = ord.status === 'cancelled';
+                const isCancelled = ord.quantity === 0 || ord.patient_name.includes('[TÖRÖLVE]');
                 let rowStyle = isCancelled ? 'background: #fef2f2; color: #94a3b8; text-decoration: line-through;' : '';
                 let statusText = isCancelled ? '<br><strong style="color: #dc2626; text-decoration: none;">[TÖRÖLVE]</strong>' : '';
 
