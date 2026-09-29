@@ -35,18 +35,13 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
         
-        <!-- Almenü / Vissza a beállításokhoz -->
+        <!-- Felső sáv / Cím és Nagyító kereső -->
         <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <a href="pharmacy-settings.html" class="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition">
-                    ← Vissza a Beállításokhoz
-                </a>
-                <h2 class="text-lg font-bold text-slate-900 flex items-center">
-                    <span class="mr-2">👥</span> Kezelt betegek adatbázisa & Archívum
-                </h2>
-            </div>
-            <div class="w-72">
-                <input type="text" id="patient-search" oninput="filterPatients()" placeholder="Keresés név vagy TAJ alapján..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                <span class="mr-2">👥</span> Kezelt betegek adatbázisa & Archívum
+            </h2>
+            <div class="w-20">
+                <input type="text" id="patient-search" oninput="filterPatients()" placeholder="🔍" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs text-center bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
             </div>
         </div>
 
@@ -59,6 +54,24 @@
 
     </main>
 
+    <!-- Beteg Előzményei Modális Ablak -->
+    <div id="patient-modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+            <div class="flex justify-between items-center border-b pb-4">
+                <h3 id="patient-modal-title" class="text-lg font-bold text-slate-900">Beteg előzményei</h3>
+                <button onclick="closePatientModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+            </div>
+            
+            <div id="patient-modal-content" class="space-y-4 text-sm">
+                <!-- Dinamikus tartalom -->
+            </div>
+
+            <div class="border-t pt-4 flex justify-end">
+                <button onclick="closePatientModal()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-medium shadow transition">Bezárás</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://qglicccrflohqkhadthc.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_kdK4lOXv11t_zzbSa7H4qA_YyhhPu1N';
@@ -68,7 +81,8 @@
 
         let currentUser = localStorage.getItem('qg_user');
         let currentRole = localStorage.getItem('qg_role');
-        let allPatientsData = [];
+        let allOrdersData = [];
+        let groupedPatientsMap = {};
 
         if (!currentUser || currentRole !== 'pharmacy') {
             window.location.href = 'index.html';
@@ -83,7 +97,6 @@
         }
 
         async function loadAllPatients() {
-            // Mivel a betegek a rendelésekhez (orders tábla) kapcsolódnak, innen gyűjtjük ki őket egyedileg
             const { data, error } = await _supabase
                 .from('orders')
                 .select('*')
@@ -95,19 +108,40 @@
                 return;
             }
 
-            allPatientsData = data || [];
-            renderPatientsTable(allPatientsData);
+            allOrdersData = data || [];
+            processAndRenderPatients(allOrdersData);
         }
 
-        function renderPatientsTable(orders) {
+        function processAndRenderPatients(orders) {
+            groupedPatientsMap = {};
+
+            orders.forEach(ord => {
+                let cleanName = ord.patient_name ? ord.patient_name.replace(' (Módosítva)', '').replace('[TÖRÖLVE] ', '') : 'Ismeretlen';
+                let key = ord.patient_identifier || cleanName;
+
+                if (!groupedPatientsMap[key]) {
+                    groupedPatientsMap[key] = {
+                        key: key,
+                        name: cleanName,
+                        identifier: ord.patient_identifier || 'Nincs megadva',
+                        ward: ord.ward_name,
+                        orders: []
+                    };
+                }
+                groupedPatientsMap[key].orders.push(ord);
+            });
+
+            renderPatientsTable(Object.values(groupedPatientsMap));
+        }
+
+        function renderPatientsTable(patientList) {
             const container = document.getElementById('patients-container');
 
-            if (orders.length === 0) {
+            if (patientList.length === 0) {
                 container.innerHTML = '<div class="p-6 text-center text-slate-400 text-sm">Nincsenek rögzített betegek az adatbázisban.</div>';
                 return;
             }
 
-            // Egyedi betegek szűrése TAJ szám vagy név alapján, hogy ne duplikálódjanak, de látszódjon az előzményük
             let tableHtml = `
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-100 text-slate-600 uppercase">
@@ -123,38 +157,18 @@
                     <tbody class="divide-y divide-slate-100">
             `;
 
-            // Csoportosítás beteg / TAJ alapján
-            const patientMap = {};
-            orders.forEach(ord => {
-                let cleanName = ord.patient_name ? ord.patient_name.replace(' (Módosítva)', '').replace('[TÖRÖLVE] ', '') : 'Ismeretlen';
-                let key = ord.patient_identifier || cleanName;
-
-                if (!patientMap[key]) {
-                    patientMap[key] = {
-                        name: cleanName,
-                        identifier: ord.patient_identifier || 'Nincs megadva',
-                        ward: ord.ward_name,
-                        lastDrug: ord.drug_name,
-                        count: 0,
-                        lastDate: ord.created_at
-                    };
-                }
-                patientMap[key].count++;
-            });
-
-            const uniquePatients = Object.values(patientMap);
-
-            uniquePatients.forEach(p => {
+            patientList.forEach(p => {
+                let lastOrder = p.orders[0]; // Mivel csökkenő sorrendben van lekérdezve
                 let isDeletedMarker = p.name.includes('[TÖRÖLVE]') ? '<span class="text-red-500 text-[10px] block">[Törölt tétel]</span>' : '';
                 
                 tableHtml += `
-                    <tr class="hover:bg-slate-50 transition">
+                    <tr onclick="openPatientModal('${p.key}')" class="hover:bg-indigo-50/50 cursor-pointer transition">
                         <td class="p-3 font-semibold text-slate-900">${p.name} ${isDeletedMarker}</td>
                         <td class="p-3 font-mono text-slate-600">${p.identifier}</td>
-                        <td class="p-3 text-slate-700">${p.ward}</td>
-                        <td class="p-3 text-indigo-900 font-medium">${p.lastDrug}</td>
-                        <td class="p-3 text-center font-bold">${p.count} db</td>
-                        <td class="p-3 text-right text-slate-500">${new Date(p.lastDate).toLocaleString('hu-HU')}</td>
+                        <td class="p-3 text-slate-700">${lastOrder.ward_name}</td>
+                        <td class="p-3 text-indigo-900 font-medium">${lastOrder.drug_name}</td>
+                        <td class="p-3 text-center font-bold">${p.orders.length} db</td>
+                        <td class="p-3 text-right text-slate-500">${new Date(lastOrder.created_at).toLocaleString('hu-HU')}</td>
                     </tr>
                 `;
             });
@@ -168,13 +182,73 @@
         }
 
         function filterPatients() {
-            const query = document.getElementById('patient-search').value.toLowerCase();
-            const filtered = allPatientsData.filter(ord => {
-                const name = ord.patient_name ? ord.patient_name.toLowerCase() : '';
-                const taj = ord.patient_identifier ? ord.patient_identifier.toLowerCase() : '';
+            const query = document.getElementById('patient-search').value.toLowerCase().replace('🔍', '').trim();
+            const filteredPatients = Object.values(groupedPatientsMap).filter(p => {
+                const name = p.name.toLowerCase();
+                const taj = p.identifier.toLowerCase();
                 return name.includes(query) || taj.includes(query);
             });
-            renderPatientsTable(filtered);
+            renderPatientsTable(filteredPatients);
+        }
+
+        function openPatientModal(patientKey) {
+            const patientObj = groupedPatientsMap[patientKey];
+            if (!patientObj) return;
+
+            document.getElementById('patient-modal-title').innerText = `Beteg előzményei: ${patientObj.name} (${patientObj.identifier})`;
+
+            let contentHtml = `
+                <div class="text-xs text-slate-500 mb-3">
+                    Összes rendelés / tétel: <strong>${patientObj.orders.length} db</strong>
+                </div>
+                <div class="border rounded-xl overflow-hidden">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 text-slate-600 uppercase">
+                            <tr>
+                                <th class="p-2.5">Dátum</th>
+                                <th class="p-2.5">Osztály</th>
+                                <th class="p-2.5">Gyógyszer</th>
+                                <th class="p-2.5">Státusz</th>
+                                <th class="p-2.5 text-right">Mennyiség</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+            `;
+
+            patientObj.orders.forEach(ord => {
+                const isCancelled = ord.quantity === 0 || ord.patient_name.includes('[TÖRÖLVE]');
+                let itemStatusBadge = '';
+                if (isCancelled) itemStatusBadge = '<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-[10px] font-semibold">Törölve</span>';
+                else if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
+                else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítás alatt</span>';
+                else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
+                else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
+
+                let rowStyle = isCancelled ? 'bg-red-50/50 line-through text-slate-400' : 'text-slate-800';
+
+                contentHtml += `
+                    <tr class="${rowStyle}">
+                        <td class="p-2.5">${new Date(ord.created_at).toLocaleString('hu-HU')}</td>
+                        <td class="p-2.5">${ord.ward_name}</td>
+                        <td class="p-2.5 font-medium">${ord.drug_name}</td>
+                        <td class="p-2.5">${itemStatusBadge}</td>
+                        <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
+                    </tr>
+                `;
+            });
+
+            contentHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('patient-modal-content').innerHTML = contentHtml;
+            document.getElementById('patient-modal-backdrop').classList.remove('hidden');
+        }
+
+        function closePatientModal() {
+            document.getElementById('patient-modal-backdrop').classList.add('hidden');
         }
     </script>
 </body>
