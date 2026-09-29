@@ -73,13 +73,13 @@
                 <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
                 <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
             </div>
-            <!-- Patikai Menüsor az Adatbázis füllel -->
+            <!-- Patikai Menüsor - Fókusz fixálással -->
             <nav class="flex items-center space-x-2 bg-indigo-950/50 p-1.5 rounded-xl border border-indigo-800 text-xs">
-                <a href="pharmacy-orders.html" class="bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium shadow">Beérkező rendelések</a>
-                <a href="pharmacy-database.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Adatbázis</a>
-                <a href="pharmacy-inventory.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Bevétel & Készlet</a>
-                <a href="pharmacy-cato.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">CATO</a>
-                <a href="pharmacy-settings.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition">Beállítások</a>
+                <a href="pharmacy-orders.html" class="bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-medium shadow focus:outline-none focus:ring-0">Beérkező rendelések</a>
+                <a href="pharmacy-database.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition focus:outline-none focus:ring-0">Adatbázis</a>
+                <a href="pharmacy-inventory.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition focus:outline-none focus:ring-0">Bevétel & Készlet</a>
+                <a href="pharmacy-cato.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition focus:outline-none focus:ring-0">CATO</a>
+                <a href="pharmacy-settings.html" class="text-indigo-200 hover:text-white px-3 py-1.5 rounded-lg font-medium transition focus:outline-none focus:ring-0">Beállítások</a>
             </nav>
             <div class="text-sm text-indigo-200 flex items-center space-x-3">
                 <span><strong id="logged-user" class="text-white"></strong></span>
@@ -117,11 +117,11 @@
     <div id="print-labels-container" class="hidden"></div>
     <div id="print-summary-container" class="hidden"></div>
 
-    <!-- Részletek / Nyomtatás Modális Ablak -->
+    <!-- Részletek / Szerkesztés & Nyomtatás Modális Ablak -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
             <div class="flex justify-between items-center border-b pb-4">
-                <h3 id="modal-title" class="text-lg font-bold text-slate-900">Csomag részletei</h3>
+                <h3 id="modal-title" class="text-lg font-bold text-slate-900">Csomag részletei & Szerkesztése</h3>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
             </div>
             
@@ -296,10 +296,11 @@
                         <thead class="bg-slate-100 text-slate-600 uppercase">
                             <tr>
                                 <th class="p-2.5">Gyógyszer</th>
-                                <th class="p-2.5">Beteg neve (TAJ)</th>
+                                <th class="p-2.5">Beteg neve & TAJ</th>
                                 <th class="p-2.5">Szállítólevél | Gy.sz</th>
-                                <th class="p-2.5">Beteg állapota</th>
+                                <th class="p-2.5">Státusz</th>
                                 <th class="p-2.5 text-right">Mennyiség</th>
+                                <th class="p-2.5 text-right">Műveletek</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -309,7 +310,7 @@
             batchOrders.forEach(ord => {
                 totalBoxes += ord.quantity;
                 let deliveryInfo = ord.delivery_note_number 
-                    ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>`
+                    ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>` 
                     : `<span class="text-amber-600 italic">Még nincs összekészítve</span>`;
 
                 let itemStatusBadge = '';
@@ -318,13 +319,27 @@
                 else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
                 else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
 
+                let modifiedBadge = ord.patient_name.includes('(Módosítva)') 
+                    ? '<span class="text-[10px] text-amber-600 font-bold block">(Módosítva)</span>' 
+                    : '';
+
                 contentHtml += `
-                    <tr>
+                    <tr id="row-${ord.id}">
                         <td class="p-2.5 font-medium">${ord.drug_name}</td>
-                        <td class="p-2.5">${ord.patient_name} <span class="text-slate-400">(${ord.patient_identifier || '-'})</span></td>
+                        <td class="p-2.5 space-y-1">
+                            <input type="text" id="pname-${ord.id}" value="${ord.patient_name.replace(' (Módosítva)', '')}" class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none" placeholder="Beteg neve">
+                            <input type="text" id="pid-${ord.id}" value="${ord.patient_identifier || ''}" placeholder="TAJ szám" class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                            ${modifiedBadge}
+                        </td>
                         <td class="p-2.5">${deliveryInfo}</td>
                         <td class="p-2.5">${itemStatusBadge}</td>
-                        <td class="p-2.5 text-right font-semibold">${ord.quantity} doboz</td>
+                        <td class="p-2.5 text-right">
+                            <input type="number" id="pqty-${ord.id}" value="${ord.quantity}" min="1" class="w-16 px-2 py-1 border border-slate-300 rounded text-xs text-right font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none"> doboz
+                        </td>
+                        <td class="p-2.5 text-right space-x-1">
+                            <button onclick="saveOrderItem('${ord.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Mentés</button>
+                            <button onclick="deleteOrderItem('${ord.id}')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Törlés</button>
+                        </td>
                     </tr>
                 `;
             });
@@ -350,7 +365,7 @@
             } else if (first.status === 'assembled') {
                 actionContainer.innerHTML = `
                     <button onclick="dispenseBatch('${batchId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
-                        Kiadás az Osztálynak (FIFO Készletcsökkentés) 🛡️
+                        Kiadás az Osztálynak (FIFO Készletcsökkenés) 🛡️
                     </button>
                 `;
             } else {
@@ -363,6 +378,129 @@
         function closeModal() {
             document.getElementById('modal-backdrop').classList.add('hidden');
             activeBatchIdModal = null;
+        }
+
+        // Egyedi tétel szerkesztése és mentése (készletkorrekcióval, ha már ki volt adva)
+        async function saveOrderItem(orderId) {
+            const ord = allOrdersData.find(o => o.id === orderId);
+            if (!ord) return;
+
+            const newNameInput = document.getElementById(`pname-${orderId}`).value.trim();
+            const newIdInput = document.getElementById(`pid-${orderId}`).value.trim();
+            const newQty = parseInt(document.getElementById(`pqty-${orderId}`).value) || 1;
+
+            if (!newNameInput) {
+                alert('A beteg neve nem lehet üres!');
+                return;
+            }
+
+            // Hozzáadjuk a (Módosítva) jelölést a névhez, ha még nincs rajta
+            const finalName = newNameInput.includes('(Módosítva)') ? newNameInput : `${newNameInput} (Módosítva)`;
+
+            // Ha a tétel már ki volt adva (dispensed vagy reported), a mennyiség változást átvezetjük a készleten
+            if (ord.status === 'dispensed' || ord.status === 'reported') {
+                const qtyDiff = newQty - ord.quantity; // Pozitív: többet kértek (csökkenteni kell a raktárt), Negatív: kevesebbet (visszapakolni)
+
+                if (qtyDiff !== 0) {
+                    // Lekérdezzük a raktárat a megfelelő szállítólevélhez és gyártási számhoz
+                    const { data: invList, error: invErr } = await _supabase
+                        .from('inventory_receipts')
+                        .select('*')
+                        .eq('delivery_note_number', ord.delivery_note_number)
+                        .eq('batch_number', ord.batch_number);
+
+                    if (invErr || !invList || invList.length === 0) {
+                        alert('Hiba: Nem található a kapcsolódó bevételezési tétel a készletben!');
+                        return;
+                    }
+
+                    const invItem = invList[0];
+
+                    if (qtyDiff > 0) {
+                        // Növeltük a mennyiséget -> ellenőrizzük, hogy van-e elég raktáron
+                        if (invItem.current_quantity < qtyDiff) {
+                            alert(`Nincs elegendő raktárkészlet a növeléshez! Elérhető: ${invItem.current_quantity} doboz.`);
+                            return;
+                        }
+                        // Levonjuk a különbséget
+                        await _supabase
+                            .from('inventory_receipts')
+                            .update({ current_quantity: invItem.current_quantity - qtyDiff })
+                            .eq('id', invItem.id);
+                    } else {
+                        // Csökkentettük a mennyiséget -> visszapakoljuk a készletbe a különbséget
+                        const returnQty = Math.abs(qtyDiff);
+                        await _supabase
+                            .from('inventory_receipts')
+                            .update({ current_quantity: invItem.current_quantity + returnQty })
+                            .eq('id', invItem.id);
+                    }
+                }
+            }
+
+            // Mentés az orders táblába
+            const { error } = await _supabase
+                .from('orders')
+                .update({
+                    patient_name: finalName,
+                    patient_identifier: newIdInput || null,
+                    quantity: newQty
+                })
+                .eq('id', orderId);
+
+            if (error) {
+                alert('Hiba a mentés során: ' + error.message);
+            } else {
+                alert('Tétel sikeresen frissítve és jelölve! ✓');
+                await loadPharmacyPackages();
+                openBatchModal(activeBatchIdModal);
+            }
+        }
+
+        // Egyedi tétel törlése (készlet visszatöltéssel, ha már ki volt adva)
+        async function deleteOrderItem(orderId) {
+            if (!confirm('Biztosan törölni szeretnéd ezt a tételt a csomagból?')) return;
+
+            const ord = allOrdersData.find(o => o.id === orderId);
+            if (!ord) return;
+
+            // Ha a tétel már ki volt adva, visszatöltjük a mennyiséget a raktárba
+            if ((ord.status === 'dispensed' || ord.status === 'reported') && ord.delivery_note_number) {
+                const { data: invList } = await _supabase
+                    .from('inventory_receipts')
+                    .select('*')
+                    .eq('delivery_note_number', ord.delivery_note_number)
+                    .eq('batch_number', ord.batch_number);
+
+                if (invList && invList.length > 0) {
+                    const invItem = invList[0];
+                    await _supabase
+                        .from('inventory_receipts')
+                        .update({ current_quantity: invItem.current_quantity + ord.quantity })
+                        .eq('id', invItem.id);
+                }
+            }
+
+            // Törlés az orders táblából
+            const { error } = await _supabase
+                .from('orders')
+                .delete()
+                .eq('id', orderId);
+
+            if (error) {
+                alert('Hiba a törlés során: ' + error.message);
+            } else {
+                alert('Tétel törölve, készlet korrigálva. ✓');
+                await loadPharmacyPackages();
+                
+                // Ellenőrizzük, hogy maradt-e még tétel ebben a csomagban
+                const remainingBatchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal && o.id !== orderId);
+                if (remainingBatchOrders.length === 0) {
+                    closeModal();
+                } else {
+                    openBatchModal(activeBatchIdModal);
+                }
+            }
         }
 
         async function assembleBatch(batchId) {
