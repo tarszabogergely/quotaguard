@@ -279,6 +279,7 @@
                     ordersToInterst.push({
                         order_batch_id: batchId,
                         ward_name: currentWard,
+                        ordered_by: currentUser, // <-- Ezt a sort kell hozzáadni
                         patient_name: pName,
                         patient_identifier: pId || null,
                         drug_name: `${selectedDrug.drug_name} (${selectedDrug.strength})`,
