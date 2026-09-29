@@ -9,27 +9,27 @@
     <style>
         /* Speciális 8x4 cm-es címke nyomtatási stílus */
         @media print {
-            @page {
+            body.print-labels @page {
                 size: 8cm 4cm;
                 margin: 0;
             }
-            body, html {
+            body.print-labels, body.print-labels html {
                 width: 8cm;
                 height: 4cm;
                 margin: 0;
                 padding: 0;
                 background: white !important;
             }
-            body * { visibility: hidden; }
-            #print-labels-container, #print-labels-container * { visibility: visible; }
-            #print-labels-container {
+            body.print-labels * { visibility: hidden; }
+            body.print-labels #print-labels-container, body.print-labels #print-labels-container * { visibility: visible; }
+            body.print-labels #print-labels-container {
                 position: absolute;
                 left: 0;
                 top: 0;
                 width: 8cm;
                 display: block;
             }
-            .drug-label {
+            body.print-labels .drug-label {
                 width: 8cm;
                 height: 4cm;
                 page-break-after: always;
@@ -43,6 +43,21 @@
                 flex-direction: column;
                 justify-content: space-between;
                 background: white;
+            }
+
+            /* A4-es Összesítő nyomtatási stílus */
+            body.print-a4 * { visibility: hidden; }
+            body.print-a4 #print-summary-container, body.print-a4 #print-summary-container * { visibility: visible; }
+            body.print-a4 #print-summary-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 15mm;
+                box-sizing: border-box;
+                font-family: sans-serif;
+                color: #000;
+                background: white !important;
             }
         }
     </style>
@@ -97,8 +112,9 @@
 
     </main>
 
-    <!-- Rejtett konténer a címkéknek nyomtatáshoz -->
+    <!-- Rejtett konténerek nyomtatáshoz -->
     <div id="print-labels-container" class="hidden"></div>
+    <div id="print-summary-container" class="hidden"></div>
 
     <!-- Részletek / Nyomtatás Modális Ablak -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
@@ -464,24 +480,20 @@
             }
         }
 
-        function printA4Summary() { window.print(); }
-
-        // Dobozcímkék nyomtatása (Pontos 8x4 cm-es címkeformátum, oldaltöréssel)
+        // Dobozcímkék nyomtatása (8x4 cm)
         function printBoxLabels() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
             if (batchOrders.length === 0) return;
 
             const container = document.getElementById('print-labels-container');
-            container.innerHTML = ''; // Előző törlése
+            container.innerHTML = '';
 
             batchOrders.forEach(ord => {
                 const boxCount = ord.quantity || 1;
-                
                 for (let i = 1; i <= boxCount; i++) {
                     const labelDiv = document.createElement('div');
                     labelDiv.className = 'drug-label';
-                    
                     labelDiv.innerHTML = `
                         <div style="border-bottom: 1px solid #000; padding-bottom: 1mm; display: flex; justify-content: space-between; font-weight: bold; font-size: 8pt;">
                             <span>🛡️ QGuard | ${ord.order_batch_id || 'Csomag'}</span>
@@ -508,8 +520,98 @@
                 }
             });
 
-            // Nyomtatás indítása
+            document.body.classList.add('print-labels');
             window.print();
+            document.body.classList.remove('print-labels');
+        }
+
+        // A4-es Összesítő nyomtatása aláírási blokkokkal
+        function printA4Summary() {
+            if (!activeBatchIdModal) return;
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
+            if (batchOrders.length === 0) return;
+
+            const first = batchOrders[0];
+            const container = document.getElementById('print-summary-container');
+            
+            let totalBoxes = batchOrders.reduce((sum, item) => sum + item.quantity, 0);
+            let patientsCount = new Set(batchOrders.map(i => i.patient_name)).size;
+
+            let rowsHtml = '';
+            batchOrders.forEach((ord, index) => {
+                rowsHtml += `
+                    <tr>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: bold;">${ord.drug_name}</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px;">${ord.patient_name} <br><span style="font-size: 8pt; color: #64748b;">TAJ: ${ord.patient_identifier || '-'}</span></td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 8.5pt;">${ord.indication || '-'}</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px; font-family: monospace;">Sz.lev: ${ord.delivery_note_number || '-'}<br>Gy.sz: ${ord.batch_number || '-'}</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-weight: bold;">${ord.quantity} doboz</td>
+                    </tr>
+                `;
+            });
+
+            container.innerHTML = `
+                <div style="max-width: 190mm; margin: 0 auto;">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #1e1b4b; padding-bottom: 10px; margin-bottom: 20px;">
+                        <div>
+                            <h2 style="margin: 0; font-size: 18pt; color: #1e1b4b;">🛡️ QuotaGuard Kórházi Gyógyszerészet</h2>
+                            <p style="margin: 3px 0 0 0; font-size: 10pt; color: #475569;">Markusovszky Egyetemi Oktatókórház Közforgalmú Gyógyszertára</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <h3 style="margin: 0; font-size: 14pt; color: #334155;">OSZTÁLYI CSOMAG ÖSSZESÍTŐ</h3>
+                            <p style="margin: 3px 0 0 0; font-size: 10pt; font-weight: bold; color: #1e1b4b;">Csomag azonosító: ${first.order_batch_id || 'N/A'}</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <div>
+                            <p style="margin: 2px 0;"><strong>Igénylő osztály:</strong> ${first.ward_name}</p>
+                            <p style="margin: 2px 0;"><strong>Leadás ideje:</strong> ${new Date(first.created_at).toLocaleString('hu-HU')}</p>
+                            <p style="margin: 2px 0;"><strong>Kért átvételi időpont:</strong> ${first.requested_pickup_date ? new Date(first.requested_pickup_date).toLocaleString('hu-HU') : '-'}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="margin: 2px 0;"><strong>Érintett betegek száma:</strong> ${patientsCount} fő</p>
+                            <p style="margin: 2px 0;"><strong>Összes tételszám:</strong> ${batchOrders.length} db</p>
+                            <p style="margin: 2px 0; font-size: 11pt; color: #1e1b4b;"><strong>Teljes mennyiség:</strong> ${totalBoxes} doboz</p>
+                        </div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 30px;">
+                        <thead>
+                            <tr style="background: #1e1b4b; color: white;">
+                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 30px;">#</th>
+                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Gyógyszer neve</th>
+                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Beteg neve & TAJ</th>
+                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Indikáció</th>
+                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: left;">Szállítólevél / Gyártási szám</th>
+                                <th style="padding: 8px; border: 1px solid #1e1b4b; text-align: center; width: 70px;">Mennyiség</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+
+                    <!-- Aláírási blokk -->
+                    <div style="display: flex; justify-content: space-between; margin-top: 50px; font-size: 10pt; page-break-inside: avoid;">
+                        <div style="text-align: center; width: 45%;">
+                            <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
+                            <strong>Kiadta (Központi Gyógyszertár):</strong><br>
+                            <span style="font-size: 9pt; color: #475569;">Név / Pecsét / Aláírás</span>
+                        </div>
+                        <div style="text-align: center; width: 45%;">
+                            <div style="border-bottom: 1px solid #000; margin-bottom: 8px; height: 40px;"></div>
+                            <strong>Átvette (${first.ward_name}):</strong><br>
+                            <span style="font-size: 9pt; color: #475569;">Név / Pecsét / Aláírás</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.classList.add('print-a4');
+            window.print();
+            document.body.classList.remove('print-a4');
         }
     </script>
 </body>
