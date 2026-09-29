@@ -205,11 +205,13 @@
             let completedCount = 0;
 
             Object.values(batches).forEach(batch => {
-                let totalBoxes = batch.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
-                let patientsCount = new Set(batch.items.map(i => i.patient_name)).size;
+                // Csak az aktív (nem törölt / nem cancelled) tételekkel számolunk összeget
+                let validItems = batch.items.filter(i => i.status !== 'cancelled');
+                let totalBoxes = validItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                let patientsCount = new Set(validItems.map(i => i.patient_name)).size;
 
-                let pendingReportCount = batch.items.filter(i => i.status !== 'reported').length;
-                let allReported = pendingReportCount === 0;
+                let pendingReportCount = validItems.filter(i => i.status !== 'reported').length;
+                let allReported = pendingReportCount === 0 && validItems.length > 0;
 
                 let hasDispensed = batch.items.some(i => i.status === 'dispensed' || i.status === 'reported');
                 let hasAssembled = batch.items.some(i => i.status === 'assembled');
@@ -264,7 +266,8 @@
                     </div>
                 `;
 
-                const isFullyDispensed = batch.items.every(i => i.status === 'dispensed' || i.status === 'reported');
+                // Csak akkor teljesített, ha minden nem törölt tétel ki van adva
+                const isFullyDispensed = batch.items.length > 0 && batch.items.filter(i => i.status !== 'cancelled').every(i => i.status === 'dispensed' || i.status === 'reported');
 
                 if (isFullyDispensed) {
                     completedCount++;
@@ -308,13 +311,18 @@
 
             let totalBoxes = 0;
             batchOrders.forEach(ord => {
-                totalBoxes += ord.quantity;
+                const isCancelled = ord.status === 'cancelled';
+                if (!isCancelled) {
+                    totalBoxes += ord.quantity;
+                }
+
                 let deliveryInfo = ord.delivery_note_number 
                     ? `<strong class="text-indigo-900">${ord.delivery_note_number}</strong><br><span class="text-[10px] text-slate-500 font-mono">Gy.sz: ${ord.batch_number || '-'}</span>` 
                     : `<span class="text-amber-600 italic">Még nincs összekészítve</span>`;
 
                 let itemStatusBadge = '';
-                if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
+                if (isCancelled) itemStatusBadge = '<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-[10px] font-semibold">Törölve (0 doboz)</span>';
+                else if (ord.status === 'pending') itemStatusBadge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">Függőben</span>';
                 else if (ord.status === 'assembled') itemStatusBadge = '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-semibold">Összeállítva</span>';
                 else if (ord.status === 'dispensed') itemStatusBadge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold">Kiadva</span>';
                 else if (ord.status === 'reported') itemStatusBadge = '<span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px] font-semibold">Jelentve ✓</span>';
@@ -323,23 +331,34 @@
                     ? '<span class="text-[10px] text-amber-600 font-bold block">(Módosítva)</span>' 
                     : '';
 
+                // Ha törölve van, áthúzott stílust adunk
+                let rowStyleClass = isCancelled ? 'bg-red-50/50 opacity-75' : '';
+                let textStyleClass = isCancelled ? 'line-through text-slate-400' : 'text-slate-800';
+
                 contentHtml += `
-                    <tr id="row-${ord.id}">
-                        <td class="p-2.5 font-medium">${ord.drug_name}</td>
+                    <tr id="row-${ord.id}" class="${rowStyleClass}">
+                        <td class="p-2.5 font-medium ${textStyleClass}">${ord.drug_name}</td>
                         <td class="p-2.5 space-y-1">
-                            <input type="text" id="pname-${ord.id}" value="${ord.patient_name.replace(' (Módosítva)', '')}" disabled class="w-full px-2 py-1 border border-slate-200 bg-slate-50 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:text-slate-700" placeholder="Beteg neve">
-                            <input type="text" id="pid-${ord.id}" value="${ord.patient_identifier || ''}" disabled placeholder="TAJ szám" class="w-full px-2 py-1 border border-slate-200 bg-slate-50 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:text-slate-700">
+                            <div id="text-display-${ord.id}" class="${textStyleClass}">
+                                <strong class="block">${ord.patient_name.replace(' (Módosítva)', '')}</strong>
+                                <span class="text-slate-500 text-[11px]">TAJ: ${ord.patient_identifier || 'Nincs megadva'}</span>
+                            </div>
+                            <input type="text" id="pname-${ord.id}" value="${ord.patient_name.replace(' (Módosítva)', '')}" disabled class="w-full px-2 py-1 border border-transparent bg-transparent rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-transparent hidden" placeholder="Beteg neve">
+                            <input type="text" id="pid-${ord.id}" value="${ord.patient_identifier || ''}" disabled placeholder="TAJ szám" class="w-full px-2 py-1 border border-transparent bg-transparent rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-transparent hidden">
                             ${modifiedBadge}
                         </td>
                         <td class="p-2.5">${deliveryInfo}</td>
                         <td class="p-2.5">${itemStatusBadge}</td>
-                        <td class="p-2.5 text-right">
-                            <input type="number" id="pqty-${ord.id}" value="${ord.quantity}" min="1" disabled class="w-16 px-2 py-1 border border-slate-200 bg-slate-50 rounded text-xs text-right font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:text-slate-700"> doboz
+                        <td class="p-2.5 text-right font-semibold">
+                            <span id="qty-display-${ord.id}" class="${textStyleClass}">${ord.quantity} doboz</span>
+                            <input type="number" id="pqty-${ord.id}" value="${ord.quantity}" min="0" disabled class="w-16 px-2 py-1 border border-transparent bg-transparent rounded text-xs text-right font-semibold focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-transparent hidden">
                         </td>
                         <td class="p-2.5 text-right space-x-1">
-                            <button id="btn-edit-${ord.id}" onclick="enableEditItem('${ord.id}')" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Módosítás</button>
-                            <button id="btn-save-${ord.id}" onclick="saveOrderItem('${ord.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition hidden">Mentés</button>
-                            <button onclick="deleteOrderItem('${ord.id}')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Törlés</button>
+                            ${!isCancelled ? `
+                                <button id="btn-edit-${ord.id}" onclick="enableEditItem('${ord.id}')" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Módosítás</button>
+                                <button id="btn-save-${ord.id}" onclick="saveOrderItem('${ord.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition hidden">Mentés</button>
+                                <button onclick="deleteOrderItem('${ord.id}')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[11px] font-medium shadow transition">Törlés</button>
+                            ` : `<span class="text-xs text-red-600 italic font-medium">Törölve</span>`}
                         </td>
                     </tr>
                 `;
@@ -357,7 +376,11 @@
             document.getElementById('modal-content').innerHTML = contentHtml;
 
             const actionContainer = document.getElementById('modal-action-buttons');
-            if (first.status === 'pending') {
+            const hasActiveItems = batchOrders.some(o => o.status !== 'cancelled');
+
+            if (!hasActiveItems) {
+                actionContainer.innerHTML = `<span class="text-xs font-semibold text-red-700 bg-red-50 px-3 py-1.5 rounded-xl">Minden tétel törölve ebben a csomagban</span>`;
+            } else if (first.status === 'pending') {
                 actionContainer.innerHTML = `
                     <button onclick="assembleBatch('${batchId}')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow transition">
                         Összeállítás kész (Szállítólevél hozzárendelése) ✓
@@ -381,35 +404,41 @@
             activeBatchIdModal = null;
         }
 
-        // Mezők engedélyezése szerkesztéshez a soron belül
+        // Szerkesztés engedélyezése: elrejtjük a sima szöveget és megjelenítjük az input mezőket kerettel
         function enableEditItem(orderId) {
+            const textDisplay = document.getElementById(`text-display-${orderId}`);
+            const qtyDisplay = document.getElementById(`qty-display-${orderId}`);
             const nameInput = document.getElementById(`pname-${orderId}`);
             const idInput = document.getElementById(`pid-${orderId}`);
             const qtyInput = document.getElementById(`pqty-${orderId}`);
             const editBtn = document.getElementById(`btn-edit-${orderId}`);
             const saveBtn = document.getElementById(`btn-save-${orderId}`);
 
-            // Kivesszük a letiltást és fehér hátteret adunk neki
+            // Elrejtjük a statikus szöveges nézetet
+            textDisplay.classList.add('hidden');
+            qtyDisplay.classList.add('hidden');
+
+            // Megjelenítjük és aktívvá tesszük az input mezőket kerettel és fehér háttérrel
+            nameInput.classList.remove('hidden', 'border-transparent', 'bg-transparent');
+            nameInput.classList.add('border-slate-300', 'bg-white');
             nameInput.disabled = false;
-            nameInput.classList.remove('bg-slate-50', 'border-slate-200');
-            nameInput.classList.add('bg-white', 'border-slate-300');
 
+            idInput.classList.remove('hidden', 'border-transparent', 'bg-transparent');
+            idInput.classList.add('border-slate-300', 'bg-white', 'mt-1');
             idInput.disabled = false;
-            idInput.classList.remove('bg-slate-50', 'border-slate-200');
-            idInput.classList.add('bg-white', 'border-slate-300');
 
+            qtyInput.classList.remove('hidden', 'border-transparent', 'bg-transparent');
+            qtyInput.classList.add('border-slate-300', 'bg-white');
             qtyInput.disabled = false;
-            qtyInput.classList.remove('bg-slate-50', 'border-slate-200');
-            qtyInput.classList.add('bg-white', 'border-slate-300');
 
-            // Gombok cscseréje
+            // Gombok cseréje
             editBtn.classList.add('hidden');
             saveBtn.classList.remove('hidden');
 
             nameInput.focus();
         }
 
-        // Egyedi tétel szerkesztése és mentése (készletkorrekcióval, ha már ki volt adva)
+        // Egyedi tétel szerkesztése és mentése
         async function saveOrderItem(orderId) {
             const ord = allOrdersData.find(o => o.id === orderId);
             if (!ord) return;
@@ -423,15 +452,12 @@
                 return;
             }
 
-            // Hozzáadjuk a (Módosítva) jelölést a névhez, ha még nincs rajta
             const finalName = newNameInput.includes('(Módosítva)') ? newNameInput : `${newNameInput} (Módosítva)`;
 
-            // Ha a tétel már ki volt adva (dispensed vagy reported), a mennyiség változást átvezetjük a készleten
             if (ord.status === 'dispensed' || ord.status === 'reported') {
-                const qtyDiff = newQty - ord.quantity; // Pozitív: többet kértek (csökkenteni kell a raktárt), Negatív: kevesebbet (visszapakolni)
+                const qtyDiff = newQty - ord.quantity;
 
                 if (qtyDiff !== 0) {
-                    // Lekérdezzük a raktárat a megfelelő szállítólevélhez és gyártási számhoz
                     const { data: invList, error: invErr } = await _supabase
                         .from('inventory_receipts')
                         .select('*')
@@ -446,18 +472,15 @@
                     const invItem = invList[0];
 
                     if (qtyDiff > 0) {
-                        // Növeltük a mennyiséget -> ellenőrizzük, hogy van-e elég raktáron
                         if (invItem.current_quantity < qtyDiff) {
                             alert(`Nincs elegendő raktárkészlet a növeléshez! Elérhető: ${invItem.current_quantity} doboz.`);
                             return;
                         }
-                        // Levonjuk a különbséget
                         await _supabase
                             .from('inventory_receipts')
                             .update({ current_quantity: invItem.current_quantity - qtyDiff })
                             .eq('id', invItem.id);
                     } else {
-                        // Csökkentettük a mennyiséget -> visszapakoljuk a készletbe a különbséget
                         const returnQty = Math.abs(qtyDiff);
                         await _supabase
                             .from('inventory_receipts')
@@ -467,7 +490,6 @@
                 }
             }
 
-            // Mentés az orders táblába
             const { error } = await _supabase
                 .from('orders')
                 .update({
@@ -486,15 +508,15 @@
             }
         }
 
-        // Egyedi tétel törlése (készlet visszatöltéssel, ha már ki volt adva)
+        // Törlés:nem töröljük ki az adatbázisból, hanem státuszt váltunk 'cancelled'-re, készletet visszapakoljuk, mennyiséget 0-ra állítjuk
         async function deleteOrderItem(orderId) {
-            if (!confirm('Biztosan törölni szeretnéd ezt a tételt a csomagból?')) return;
+            if (!confirm('Biztosan törölni szeretnéd ezt a tételt? A sor áthúzva megmarad az archívumban, és a készlet visszakerül a raktárba.')) return;
 
             const ord = allOrdersData.find(o => o.id === orderId);
             if (!ord) return;
 
-            // Ha a tétel már ki volt adva, visszatöltjük a mennyiséget a raktárba
-            if ((ord.status === 'dispensed' || ord.status === 'reported') && ord.delivery_note_number) {
+            // Ha már ki volt adva (vagy össze volt állítva és van szállítólevele), visszatöltjük a raktárba
+            if (ord.delivery_note_number) {
                 const { data: invList } = await _supabase
                     .from('inventory_receipts')
                     .select('*')
@@ -510,30 +532,26 @@
                 }
             }
 
-            // Törlés az orders táblából
+            // Státusz frissítése cancelled-re, mennyiség 0-ra
             const { error } = await _supabase
                 .from('orders')
-                .delete()
+                .update({
+                    status: 'cancelled',
+                    quantity: 0
+                })
                 .eq('id', orderId);
 
             if (error) {
                 alert('Hiba a törlés során: ' + error.message);
             } else {
-                alert('Tétel törölve, készlet korrigálva. ✓');
+                alert('Tétel törölve, készlet visszatöltve a raktárba. ✓');
                 await loadPharmacyPackages();
-                
-                // Ellenőrizzük, hogy maradt-e még tétel ebben a csomagban
-                const remainingBatchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal && o.id !== orderId);
-                if (remainingBatchOrders.length === 0) {
-                    closeModal();
-                } else {
-                    openBatchModal(activeBatchIdModal);
-                }
+                openBatchModal(activeBatchIdModal);
             }
         }
 
         async function assembleBatch(batchId) {
-            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.status !== 'cancelled');
 
             const neededDrugs = {};
             batchOrders.forEach(o => {
@@ -595,7 +613,7 @@
         }
 
         async function dispenseBatch(batchId) {
-            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId);
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === batchId && o.status !== 'cancelled');
 
             const neededDrugs = {};
             batchOrders.forEach(o => {
@@ -648,10 +666,10 @@
             }
         }
 
-        // Dobozcímkék nyomtatása (8x4 cm)
+        // Dobozcímkék nyomtatása (8x4 cm) - a törölt tételeket kihagyjuk
         function printBoxLabels() {
             if (!activeBatchIdModal) return;
-            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
+            const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal && o.status !== 'cancelled');
             if (batchOrders.length === 0) return;
 
             const container = document.getElementById('print-labels-container');
@@ -693,7 +711,7 @@
             document.body.classList.remove('print-labels');
         }
 
-        // A4-es Összesítő nyomtatása tiszta rejtett konténerrel
+        // A4-es Összesítő nyomtatása - a törölt tételeket is feltüntetjük áthúzva / 0 dobozzal
         function printA4Summary() {
             if (!activeBatchIdModal) return;
             const batchOrders = allOrdersData.filter(o => (o.order_batch_id || ('ID-' + o.id.slice(0, 8))) === activeBatchIdModal);
@@ -702,19 +720,24 @@
             const first = batchOrders[0];
             const container = document.getElementById('print-summary-container');
             
-            let totalBoxes = batchOrders.reduce((sum, item) => sum + item.quantity, 0);
-            let patientsCount = new Set(batchOrders.map(i => i.patient_name)).size;
+            let validItems = batchOrders.filter(o => o.status !== 'cancelled');
+            let totalBoxes = validItems.reduce((sum, item) => sum + item.quantity, 0);
+            let patientsCount = new Set(validItems.map(i => i.patient_name)).size;
 
             let rowsHtml = '';
             batchOrders.forEach((ord, index) => {
+                const isCancelled = ord.status === 'cancelled';
+                let rowStyle = isCancelled ? 'background: #fef2f2; color: #94a3b8; text-decoration: line-through;' : '';
+                let statusText = isCancelled ? '<br><strong style="color: #dc2626; text-decoration: none;">[TÖRÖLVE]</strong>' : '';
+
                 rowsHtml += `
-                    <tr>
+                    <tr style="${rowStyle}">
                         <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${index + 1}</td>
                         <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: bold;">${ord.drug_name}</td>
-                        <td style="border: 1px solid #cbd5e1; padding: 6px;">${ord.patient_name} <br><span style="font-size: 8pt; color: #64748b;">TAJ: ${ord.patient_identifier || '-'}</span></td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px;">${ord.patient_name} <br><span style="font-size: 8pt; color: #64748b;">TAJ: ${ord.patient_identifier || '-'}</span> ${statusText}</td>
                         <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 8.5pt;">${ord.indication || '-'}</td>
                         <td style="border: 1px solid #cbd5e1; padding: 6px; font-family: monospace;">Sz.lev: ${ord.delivery_note_number || '-'}<br>Gy.sz: ${ord.batch_number || '-'}</td>
-                        <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-weight: bold;">${ord.quantity} doboz</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-weight: bold;">${isCancelled ? '0 doboz' : (ord.quantity + ' doboz')}</td>
                     </tr>
                 `;
             });
@@ -740,7 +763,7 @@
                         </div>
                         <div style="text-align: right;">
                             <p style="margin: 2px 0;"><strong>Érintett betegek száma:</strong> ${patientsCount} fő</p>
-                            <p style="margin: 2px 0;"><strong>Összes tételszám:</strong> ${batchOrders.length} db</p>
+                            <p style="margin: 2px 0;"><strong>Összes tételszám:</strong> ${validItems.length} db aktív</p>
                             <p style="margin: 2px 0; font-size: 11pt; color: #1e1b4b;"><strong>Teljes mennyiség:</strong> ${totalBoxes} doboz</p>
                         </div>
                     </div>
