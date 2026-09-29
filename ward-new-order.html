@@ -244,7 +244,15 @@
                 return;
             }
 
-            const batchId = 'QG-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+            // Dátum alapú egyedi csonosító generálása (pl. QG-20260929-4821)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${year}${month}${day}`;
+            const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 jegyű véletlenszám
+            
+            const batchId = `QG-${dateStr}-${randomSuffix}`;
             const drugBlocks = document.querySelectorAll('.drug-block');
             const ordersToInterst = [];
 
