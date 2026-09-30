@@ -281,7 +281,7 @@
                         ordered_by: currentUser, // <-- Ezt a sort kell hozzáadni
                         patient_name: pName,
                         patient_identifier: pId || null,
-                        drug_name: `${selectedDrug.drug_name} (${drug.approved_indication})`,
+                        drug_name: `${selectedDrug.drug_name} (${selectedDrug.approved_indication})`,
                         indication: selectedDrug.approved_indication,
                         quantity: pQty,
                         requested_pickup_date: pickupDate,
