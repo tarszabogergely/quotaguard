@@ -113,7 +113,7 @@
             let optionsHtml = '<option value="">-- Válasszon gyógyszert --</option>';
             loadedDrugs.forEach(drug => {
                 if (drug.allowed_ward === 'Minden osztály' || drug.allowed_ward === currentWard) {
-                    optionsHtml += `<option value="${drug.id}">${drug.drug_name} (${drug.strength})</option>`;
+                    optionsHtml += `<option value="${drug.id}">${drug.drug_name} (${drug.approved_indication})</option>`;
                 }
             });
 
@@ -222,7 +222,7 @@
             const drug = loadedDrugs.find(d => d.id === drugId);
 
             if (drug) {
-                block.querySelector('.drug-details').value = `${drug.strength} - ${drug.package_form} | Indikáció: ${drug.approved_indication}`;
+                block.querySelector('.drug-details').value = `${drug.strength} | ${drug.package_form} | ${drug.approved_indication}`;
             } else {
                 block.querySelector('.drug-details').value = '';
             }
