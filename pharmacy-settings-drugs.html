@@ -35,43 +35,41 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
         
-        <!-- 1. Új gyógyszer felvétele a törzsbe (CATO & Vonalkóddal) -->
+        <!-- 1. Új gyógyszer felvétele a törzsbe -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
                 <span class="mr-2">💊</span> Új gyógyszer felvétele
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve / Hatóanyag</label>
-                    <input type="text" id="master-drug-name" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve</label>
+                    <input type="text" id="master-drug-name" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. MabThera">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatáserősség</label>
-                    <input type="text" id="master-strength" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatóanyag</label>
+                    <input type="text" id="master-active-ingredient" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Rituximab">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kiszerelés</label>
-                    <input type="text" id="master-form" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatáserősség (csak szám)</label>
+                    <input type="text" id="master-strength" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. 500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kiszerelés (csak szám)</label>
+                    <input type="text" id="master-form" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. 1">
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hivatalos Indikáció</label>
-                    <input type="text" id="master-indication" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <input type="text" id="master-indication" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Lymphoma malignum">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Jogosult Osztály</label>
-                    <select id="master-ward" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        <option value="Minden osztály">Minden osztály</option>
-                        <option value="Belgyógyászat">Belgyógyászat</option>
-                        <option value="Hematológia">Hematológia</option>
-                        <option value="Onkológia">Onkológia</option>
-                        <option value="Intenzív">Intenzív Osztály</option>
-                    </select>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Jogosult Osztály(ok)</label>
+                    <input type="text" id="master-ward" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Minden osztály vagy pl. Onkológia, Hematológia">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Vonalkód</label>
                     <input type="text" id="master-barcode" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
-                <div class="flex items-center pt-6">
+                <div class="flex items-center pt-4 md:col-span-2">
                     <label class="flex items-center space-x-3 cursor-pointer">
                         <input type="checkbox" id="master-cato" class="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
                         <span class="text-sm font-semibold text-slate-700">CATO kompatibilis készítmény</span>
@@ -93,15 +91,17 @@
                     <thead>
                         <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
                             <th class="p-3 rounded-l-xl">Gyógyszer neve</th>
-                            <th class="p-3">Hatás / Kiszerelés</th>
+                            <th class="p-3">Hatóanyag</th>
+                            <th class="p-3">Hatáserősség</th>
+                            <th class="p-3">Kiszerelés</th>
                             <th class="p-3">Indikáció</th>
                             <th class="p-3">Vonalkód</th>
                             <th class="p-3">CATO</th>
-                            <th class="p-3 rounded-r-xl">Osztály</th>
+                            <th class="p-3 rounded-r-xl">Osztály(ok)</th>
                         </tr>
                     </thead>
                     <tbody id="drugs-table-body" class="divide-y divide-slate-100">
-                        <tr><td colspan="6" class="p-4 text-center text-slate-400">Törzs betöltése...</td></tr>
+                        <tr><td colspan="8" class="p-4 text-center text-slate-400">Törzs betöltése...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -133,10 +133,11 @@
 
         async function saveMasterDrug() {
             const name = document.getElementById('master-drug-name').value.trim();
+            const activeIngredient = document.getElementById('master-active-ingredient').value.trim();
             const strength = document.getElementById('master-strength').value.trim();
             const form = document.getElementById('master-form').value.trim();
             const indication = document.getElementById('master-indication').value.trim();
-            const ward = document.getElementById('master-ward').value;
+            const ward = document.getElementById('master-ward').value.trim() || 'Minden osztály';
             const barcode = document.getElementById('master-barcode').value.trim();
             const isCato = document.getElementById('master-cato').checked;
 
@@ -149,6 +150,7 @@
                 .from('drugs')
                 .insert([{
                     drug_name: name,
+                    active_ingredient: activeIngredient,
                     strength: strength,
                     package_form: form,
                     approved_indication: indication,
@@ -162,9 +164,11 @@
             } else {
                 alert('Gyógyszer sikeresen rögzítve a törzsbe! 💊');
                 document.getElementById('master-drug-name').value = '';
+                document.getElementById('master-active-ingredient').value = '';
                 document.getElementById('master-strength').value = '';
                 document.getElementById('master-form').value = '';
                 document.getElementById('master-indication').value = '';
+                document.getElementById('master-ward').value = '';
                 document.getElementById('master-barcode').value = '';
                 document.getElementById('master-cato').checked = false;
                 loadDrugsTable();
@@ -176,12 +180,12 @@
             const tbody = document.getElementById('drugs-table-body');
 
             if (error) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
                 return;
             }
 
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Még nincsenek gyógyszerek a törzsben.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400">Még nincsenek gyógyszerek a törzsben.</td></tr>`;
                 return;
             }
 
@@ -191,11 +195,17 @@
                     ? '<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-semibold">CATO</span>' 
                     : '<span class="text-slate-400 text-xs">-</span>';
 
+                // Hatáserősség és kiszerelés kiegészítése mértékegységekkel a táblázatban
+                const strengthDisplay = drug.strength ? `${drug.strength} mg` : '-';
+                const formDisplay = drug.package_form ? `${drug.package_form} x` : '-';
+
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-slate-50 transition';
                 row.innerHTML = `
-                    <td class="p-3 font-medium">${drug.drug_name}</td>
-                    <td class="p-3 text-slate-600">${drug.strength} (${drug.package_form})</td>
+                    <td class="p-3 font-semibold text-slate-900">${drug.drug_name}</td>
+                    <td class="p-3 text-slate-700">${drug.active_ingredient || '-'}</td>
+                    <td class="p-3 text-slate-600">${strengthDisplay}</td>
+                    <td class="p-3 text-slate-600">${formDisplay}</td>
                     <td class="p-3 text-slate-500 text-xs">${drug.approved_indication}</td>
                     <td class="p-3 font-mono text-xs">${drug.barcode || '-'}</td>
                     <td class="p-3">${catoBadge}</td>
