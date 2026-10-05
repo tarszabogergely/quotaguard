@@ -13,7 +13,7 @@
     <header class="bg-indigo-900 text-white shadow-md">
         <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center space-x-3">
-                <span class="text-2xl">🛡️</span>
+                <span class="text-2xl">🛡️️</span>
                 <h1 class="text-xl font-bold tracking-wide">QuotaGuard</h1>
                 <span class="text-xs bg-indigo-700 px-2.5 py-1 rounded-full text-indigo-200">Központi Gyógyszertár</span>
             </div>
@@ -43,12 +43,12 @@
             <input type="hidden" id="edit-user-id">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">E-mail cím</label>
-                    <input type="email" id="user-email" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pelda@markusovszky.hu">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Felhasználónév</label>
+                    <input type="text" id="user-username" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. gergely.tarszabo">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Teljes név</label>
-                    <input type="text" id="user-fullname" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Dr. Patikus Gergő">
+                    <input type="text" id="user-fullname" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Dr. Tarszabó Gergely">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Osztály</label>
@@ -96,7 +96,7 @@
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
                         <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
-                            <th class="p-3 rounded-l-xl">E-mail / Név</th>
+                            <th class="p-3 rounded-l-xl">Felhasználónév / Név</th>
                             <th class="p-3">Osztály</th>
                             <th class="p-3">Szerepkör</th>
                             <th class="p-3">Jelszó</th>
@@ -171,13 +171,13 @@
                 row.innerHTML = `
                     <td class="p-3">
                         <strong class="text-slate-900">${user.full_name || '-'}</strong><br>
-                        <span class="text-xs text-slate-500">${user.email || '-'}</span>
+                        <span class="text-xs text-indigo-700 font-mono font-medium">${user.username || '-'}</span>
                     </td>
                     <td class="p-3 text-slate-700">${user.ward_name || 'Központ'}</td>
                     <td class="p-3">${roleBadge}</td>
                     <td class="p-3 font-mono text-slate-500 text-xs">••••••</td>
                     <td class="p-3 text-right space-x-2">
-                        <button onclick="editUser('${user.id}', '${user.email || ''}', '${user.full_name || ''}', '${user.ward_name || ''}', '${user.role || ''}', '${user.password || ''}')" class="bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl text-xs font-medium transition">Szerkesztés</button>
+                        <button onclick="editUser('${user.id}', '${user.username || ''}', '${user.full_name || ''}', '${user.ward_name || ''}', '${user.role || ''}', '${user.password || ''}')" class="bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl text-xs font-medium transition">Szerkesztés</button>
                         <button onclick="deleteUser('${user.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-xl text-xs font-medium transition">Törlés</button>
                     </td>
                 `;
@@ -187,21 +187,21 @@
 
         async function saveUser() {
             const editId = document.getElementById('edit-user-id').value;
-            const email = document.getElementById('user-email').value.trim();
+            const username = document.getElementById('user-username').value.trim();
             const full_name = document.getElementById('user-fullname').value.trim();
             const ward_name = document.getElementById('user-ward').value;
             const role = document.getElementById('user-role').value;
             const password = document.getElementById('user-password').value.trim();
 
-            if (!email || !full_name || !password) {
-                alert('Az e-mail, a név és a jelszó megadása kötelező!');
+            if (!username || !full_name || !password) {
+                alert('A felhasználónév, a név és a jelszó megadása kötelező!');
                 return;
             }
 
             if (editId) {
                 const { error } = await _supabase
                     .from('users')
-                    .update({ email, full_name, ward_name: ward_name || null, role, password })
+                    .update({ username, full_name, ward_name: ward_name || null, role, password })
                     .eq('id', editId);
 
                 if (error) {
@@ -214,7 +214,7 @@
             } else {
                 const { error } = await _supabase
                     .from('users')
-                    .insert([{ email, full_name, ward_name: ward_name || null, role, password }]);
+                    .insert([{ username, full_name, ward_name: ward_name || null, role, password }]);
 
                 if (error) {
                     alert('Hiba a rögzítéskor: ' + error.message);
@@ -226,9 +226,9 @@
             }
         }
 
-        function editUser(id, email, full_name, ward_name, role, password) {
+        function editUser(id, username, full_name, ward_name, role, password) {
             document.getElementById('edit-user-id').value = id;
-            document.getElementById('user-email').value = email;
+            document.getElementById('user-username').value = username;
             document.getElementById('user-fullname').value = full_name;
             document.getElementById('user-ward').value = ward_name;
             document.getElementById('user-role').value = role;
@@ -242,7 +242,7 @@
 
         function resetForm() {
             document.getElementById('edit-user-id').value = '';
-            document.getElementById('user-email').value = '';
+            document.getElementById('user-username').value = '';
             document.getElementById('user-fullname').value = '';
             document.getElementById('user-ward').value = '';
             document.getElementById('user-role').value = 'ward';
