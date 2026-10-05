@@ -44,16 +44,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Felhasználónév</label>
-                    <input type="text" id="user-username" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. gergely.tarszabo">
+                    <input type="text" id="user-username" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Teljes név</label>
-                    <input type="text" id="user-fullname" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Dr. Tarszabó Gergely">
+                    <input type="text" id="user-fullname" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Osztály</label>
                     <select id="user-ward" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        <option value="">Nincs (Központ)</option>
+                        <option value="">Gyógyszertár</option>
                         <option value="Belgyógyászat">Belgyógyászat</option>
                         <option value="Hematológia">Hematológia</option>
                         <option value="Onkológia">Onkológia</option>
@@ -64,7 +64,7 @@
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Szerepkör</label>
                     <select id="user-role" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="ward">Osztályos felhasználó</option>
-                        <option value="pharmacy">Patikai operátor</option>
+                        <option value="pharmacy">Patika</option>
                     </select>
                 </div>
                 <div>
@@ -163,7 +163,7 @@
             tbody.innerHTML = '';
             data.forEach(user => {
                 const roleBadge = user.role === 'pharmacy' 
-                    ? '<span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-semibold">Patika Operátor</span>' 
+                    ? '<span class="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs font-semibold">Patika</span>' 
                     : '<span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold">Osztály</span>';
 
                 const row = document.createElement('tr');
@@ -173,7 +173,7 @@
                         <strong class="text-slate-900">${user.full_name || '-'}</strong><br>
                         <span class="text-xs text-indigo-700 font-mono font-medium">${user.username || '-'}</span>
                     </td>
-                    <td class="p-3 text-slate-700">${user.ward_name || 'Központ'}</td>
+                    <td class="p-3 text-slate-700">${user.ward_name || 'Gyógyszertár'}</td>
                     <td class="p-3">${roleBadge}</td>
                     <td class="p-3 font-mono text-slate-500 text-xs">••••••</td>
                     <td class="p-3 text-right space-x-2">
