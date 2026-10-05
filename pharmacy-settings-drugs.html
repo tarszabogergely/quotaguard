@@ -35,11 +35,13 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
         
-        <!-- 1. Új gyógyszer felvétele a törzsbe -->
+        <!-- 1. Gyógyszer felvétele / szerkesztése űrlap -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
-            <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
+            <h2 id="form-title" class="text-lg font-bold text-slate-900 mb-4 flex items-center">
                 <span class="mr-2">💊</span> Új gyógyszer felvétele
             </h2>
+            <input type="hidden" id="editing-drug-id" value="">
+            
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve</label>
@@ -63,7 +65,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Jogosult Osztály(ok)</label>
-                    <input type="text" id="master-ward" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Minden osztály vagy pl. Onkológia, Hematológia">
+                    <input type="text" id="master-ward" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Minden osztály vagy pl. Onkológia">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Vonalkód</label>
@@ -76,15 +78,24 @@
                     </label>
                 </div>
             </div>
-            <button onclick="saveMasterDrug()" class="mt-5 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium shadow-lg transition">
-                Gyógyszer rögzítése a törzsbe
-            </button>
+
+            <div class="mt-5 flex items-center space-x-3">
+                <button id="save-btn" onclick="saveMasterDrug()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium shadow-lg transition">
+                    Gyógyszer rögzítése a törzsbe
+                </button>
+                <button id="cancel-btn" onclick="resetForm()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                    Mégse / Új felvétele
+                </button>
+                <button id="delete-btn" onclick="deleteDrug()" class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow transition">
+                    Törlés a törzsből
+                </button>
+            </div>
         </div>
 
         <!-- 2. Meglévő Gyógyszertörzs áttekintése -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📋</span> Gyógyszertörzs
+                <span class="mr-2">📋</span> Gyógyszertörzs <span class="text-xs font-normal text-slate-400 ml-2">(kattints bármelyik sorra a szerkesztéshez)</span>
             </h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
@@ -95,9 +106,9 @@
                             <th class="p-3">Hatáserősség</th>
                             <th class="p-3">Kiszerelés</th>
                             <th class="p-3">Indikáció</th>
+                            <th class="p-3">Osztály(ok)</th>
                             <th class="p-3">Vonalkód</th>
-                            <th class="p-3">CATO</th>
-                            <th class="p-3 rounded-r-xl">Osztály(ok)</th>
+                            <th class="p-3 rounded-r-xl">CATO</th>
                         </tr>
                     </thead>
                     <tbody id="drugs-table-body" class="divide-y divide-slate-100">
@@ -118,6 +129,7 @@
 
         let currentUser = localStorage.getItem('qg_user');
         let currentRole = localStorage.getItem('qg_role');
+        let loadedDrugsMap = {};
 
         if (!currentUser || currentRole !== 'pharmacy') {
             window.location.href = 'index.html';
@@ -132,6 +144,7 @@
         }
 
         async function saveMasterDrug() {
+            const editingId = document.getElementById('editing-drug-id').value;
             const name = document.getElementById('master-drug-name').value.trim();
             const activeIngredient = document.getElementById('master-active-ingredient').value.trim();
             const strength = document.getElementById('master-strength').value.trim();
@@ -146,38 +159,110 @@
                 return;
             }
 
+            const drugData = {
+                drug_name: name,
+                active_ingredient: activeIngredient,
+                strength: strength,
+                package_form: form,
+                approved_indication: indication,
+                allowed_ward: ward,
+                barcode: barcode,
+                is_cato: isCato
+            };
+
+            if (editingId) {
+                // Módosítás
+                const { error } = await _supabase
+                    .from('drugs')
+                    .update(drugData)
+                    .eq('id', editingId);
+
+                if (error) {
+                    alert('Hiba a módosítás során: ' + error.message);
+                } else {
+                    alert('Gyógyszer sikeresen frissítve! 💊');
+                    resetForm();
+                    loadDrugsTable();
+                }
+            } else {
+                // Új felvétele
+                const { error } = await _supabase
+                    .from('drugs')
+                    .insert([drugData]);
+
+                if (error) {
+                    alert('Hiba: ' + error.message);
+                } else {
+                    alert('Gyógyszer sikeresen rögzítve a törzsbe! 💊');
+                    resetForm();
+                    loadDrugsTable();
+                }
+            }
+        }
+
+        async function deleteDrug() {
+            const editingId = document.getElementById('editing-drug-id').value;
+            if (!editingId) return;
+
+            if (!confirm('Biztosan törölni szeretnéd ezt a gyógyszert a törzsből?')) return;
+
             const { error } = await _supabase
                 .from('drugs')
-                .insert([{
-                    drug_name: name,
-                    active_ingredient: activeIngredient,
-                    strength: strength,
-                    package_form: form,
-                    approved_indication: indication,
-                    allowed_ward: ward,
-                    barcode: barcode,
-                    is_cato: isCato
-                }]);
+                .delete()
+                .eq('id', editingId);
 
             if (error) {
-                alert('Hiba: ' + error.message);
+                alert('Hiba a törlés során: ' + error.message);
             } else {
-                alert('Gyógyszer sikeresen rögzítve a törzsbe! 💊');
-                document.getElementById('master-drug-name').value = '';
-                document.getElementById('master-active-ingredient').value = '';
-                document.getElementById('master-strength').value = '';
-                document.getElementById('master-form').value = '';
-                document.getElementById('master-indication').value = '';
-                document.getElementById('master-ward').value = '';
-                document.getElementById('master-barcode').value = '';
-                document.getElementById('master-cato').checked = false;
+                alert('Gyógyszer törölve a törzsből.');
+                resetForm();
                 loadDrugsTable();
             }
+        }
+
+        function editDrug(drugId) {
+            const drug = loadedDrugsMap[drugId];
+            if (!drug) return;
+
+            document.getElementById('editing-drug-id').value = drug.id;
+            document.getElementById('master-drug-name').value = drug.drug_name || '';
+            document.getElementById('master-active-ingredient').value = drug.active_ingredient || '';
+            document.getElementById('master-strength').value = drug.strength || '';
+            document.getElementById('master-form').value = drug.package_form || '';
+            document.getElementById('master-indication').value = drug.approved_indication || '';
+            document.getElementById('master-ward').value = drug.allowed_ward || '';
+            document.getElementById('master-barcode').value = drug.barcode || '';
+            document.getElementById('master-cato').checked = drug.is_cato || false;
+
+            document.getElementById('form-title').innerHTML = '<span class="mr-2">✏️</span> Gyógyszer szerkesztése';
+            document.getElementById('save-btn').innerText = 'Módosítás mentése';
+            document.getElementById('cancel-btn').classList.remove('hidden');
+            document.getElementById('delete-btn').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            document.getElementById('editing-drug-id').value = '';
+            document.getElementById('master-drug-name').value = '';
+            document.getElementById('master-active-ingredient').value = '';
+            document.getElementById('master-strength').value = '';
+            document.getElementById('master-form').value = '';
+            document.getElementById('master-indication').value = '';
+            document.getElementById('master-ward').value = '';
+            document.getElementById('master-barcode').value = '';
+            document.getElementById('master-cato').checked = false;
+
+            document.getElementById('form-title').innerHTML = '<span class="mr-2">💊</span> Új gyógyszer felvétele';
+            document.getElementById('save-btn').innerText = 'Gyógyszer rögzítése a törzsbe';
+            document.getElementById('cancel-btn').classList.add('hidden');
+            document.getElementById('delete-btn').classList.add('hidden');
         }
 
         async function loadDrugsTable() {
             const { data, error } = await _supabase.from('drugs').select('*').order('drug_name', { ascending: true });
             const tbody = document.getElementById('drugs-table-body');
+            loadedDrugsMap = {};
 
             if (error) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Hiba: ${error.message}</td></tr>`;
@@ -191,25 +276,27 @@
 
             tbody.innerHTML = '';
             data.forEach(drug => {
+                loadedDrugsMap[drug.id] = drug;
+
                 const catoBadge = drug.is_cato 
                     ? '<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-semibold">CATO</span>' 
                     : '<span class="text-slate-400 text-xs">-</span>';
 
-                // Hatáserősség és kiszerelés kiegészítése mértékegységekkel a táblázatban
                 const strengthDisplay = drug.strength ? `${drug.strength} mg` : '-';
                 const formDisplay = drug.package_form ? `${drug.package_form} x` : '-';
 
                 const row = document.createElement('tr');
-                row.className = 'hover:bg-slate-50 transition';
+                row.className = 'hover:bg-indigo-50/50 cursor-pointer transition';
+                row.onclick = () => editDrug(drug.id);
                 row.innerHTML = `
                     <td class="p-3 font-semibold text-slate-900">${drug.drug_name}</td>
                     <td class="p-3 text-slate-700">${drug.active_ingredient || '-'}</td>
                     <td class="p-3 text-slate-600">${strengthDisplay}</td>
                     <td class="p-3 text-slate-600">${formDisplay}</td>
                     <td class="p-3 text-slate-500 text-xs">${drug.approved_indication}</td>
+                    <td class="p-3 text-xs font-semibold text-indigo-700">${drug.allowed_ward}</td>
                     <td class="p-3 font-mono text-xs">${drug.barcode || '-'}</td>
                     <td class="p-3">${catoBadge}</td>
-                    <td class="p-3 text-xs font-semibold text-indigo-700">${drug.allowed_ward}</td>
                 `;
                 tbody.appendChild(row);
             });
