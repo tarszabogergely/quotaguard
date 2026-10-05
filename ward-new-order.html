@@ -225,7 +225,12 @@ loadedDrugs.forEach(drug => {
             const drug = loadedDrugs.find(d => d.id === drugId);
 
             if (drug) {
-                block.querySelector('.drug-details').value = `${drug.strength} | ${drug.package_form} | ${drug.approved_indication}`;
+                const strengthText = drug.strength ? `${drug.strength} mg` : '';
+                const packageText = drug.package_form ? `${drug.package_form} x` : '';
+                
+                const detailsParts = [strengthText, packageText, drug.approved_indication].filter(Boolean);
+                
+                block.querySelector('.drug-details').value = detailsParts.join(' | ');
             } else {
                 block.querySelector('.drug-details').value = '';
             }
