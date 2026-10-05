@@ -111,11 +111,14 @@
             const blockIndex = document.querySelectorAll('.drug-block').length;
 
             let optionsHtml = '<option value="">-- Válasszon gyógyszert --</option>';
-            loadedDrugs.forEach(drug => {
-                if (drug.allowed_ward === 'Minden osztály' || drug.allowed_ward === currentWard) {
-                    optionsHtml += `<option value="${drug.id}">${drug.drug_name} (${drug.approved_indication})</option>`;
-                }
-            });
+loadedDrugs.forEach(drug => {
+    // Felbontjuk a vesszőknél, és letisztítjuk a felesleges szóközöket
+    const allowedWards = drug.allowed_ward ? drug.allowed_ward.split(',').map(s => s.trim()) : [];
+    
+    if (drug.allowed_ward === 'Minden osztály' || allowedWards.includes(currentWard)) {
+        optionsHtml += `<option value="${drug.id}">${drug.drug_name} (${drug.approved_indication})</option>`;
+    }
+});
 
             const blockDiv = document.createElement('div');
             blockDiv.className = 'drug-block bg-slate-50 border border-slate-200 rounded-2xl p-5 relative space-y-4 shadow-sm';
