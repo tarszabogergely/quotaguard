@@ -38,24 +38,24 @@
         <!-- 1. Új gyógyszer felvétele a törzsbe (CATO & Vonalkóddal) -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">💊</span> Új gyógyszer felvétele a Mestertáblába
+                <span class="mr-2">💊</span> Új gyógyszer felvétele
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Gyógyszer neve / Hatóanyag</label>
-                    <input type="text" id="master-drug-name" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. Regkirona / G-CSF">
+                    <input type="text" id="master-drug-name" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hatáserősség</label>
-                    <input type="text" id="master-strength" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. 40mg/0.4ml">
+                    <input type="text" id="master-strength" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Kiszerelés</label>
-                    <input type="text" id="master-form" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. 1 db patron">
+                    <input type="text" id="master-form" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hivatalos Indikáció</label>
-                    <input type="text" id="master-indication" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Indikációs terület leírása">
+                    <input type="text" id="master-indication" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Jogosult Osztály</label>
@@ -69,7 +69,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Vonalkód (EAN / DataMatrix)</label>
-                    <input type="text" id="master-barcode" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="pl. 5990123456789">
+                    <input type="text" id="master-barcode" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div class="flex items-center pt-6">
                     <label class="flex items-center space-x-3 cursor-pointer">
@@ -79,14 +79,14 @@
                 </div>
             </div>
             <button onclick="saveMasterDrug()" class="mt-5 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium shadow-lg transition">
-                Gyógyszer rögzítése a törzsbe 💊
+                Gyógyszer rögzítése a törzsbe
             </button>
         </div>
 
         <!-- 2. Meglévő Gyógyszertörzs áttekintése -->
         <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
             <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center">
-                <span class="mr-2">📋</span> Aktuális Gyógyszertörzs
+                <span class="mr-2">📋</span> Gyógyszertörzs
             </h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
