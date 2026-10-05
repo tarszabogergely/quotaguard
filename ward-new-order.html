@@ -185,7 +185,7 @@
             const newRow = document.createElement('div');
             newRow.className = 'patient-row flex items-center gap-2';
             newRow.innerHTML = `
-                <input type="text" class="patient-name flex-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Beteg neve *">
+                <input type="text" class="patient-name flex-2 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Név">
                 <input type="text" class="patient-id flex-1 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="TAJ szám">
                 <input type="number" class="patient-qty w-24 px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="1" min="1" placeholder="Doboz" oninput="updateBlockAndTotalQty(this)">
                 <button type="button" onclick="removePatientRow(this)" class="px-2 py-2 text-slate-400 hover:text-red-500 text-sm">✕</button>
